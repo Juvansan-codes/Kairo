@@ -64,3 +64,11 @@ Binary GLB file download, or JSON containing the download URL.
   "model_url": "string"
 }
 ```
+
+---
+
+## Service Architecture (Member 4 Scaffold)
+The backend uses a service boundary approach to separate API/HTTP from ML/Geometry processing:
+- **Endpoints (`endpoints.py`)**: API handling and payload schemas.
+- **Job Manager (`job_manager.py`)**: Local-storage tracking system for mock async jobs.
+- **Reconstruction Service (`reconstruction.py`)**: Orchestrator for future Perception, OCR, Dimension, Geometry and Scene Generation services.
