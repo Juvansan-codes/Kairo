@@ -1,0 +1,35 @@
+{
+  "dataset_version": "1.0",
+  "samples": [
+    {
+      "id": "real_001",
+      "image": "evaluation/datasets/custom_real_v1/real_001.png",
+      "ground_truth": "evaluation/ground_truth/custom_real_v1/real_001.json",
+      "status": "pending"
+    },
+    {
+      "id": "real_002",
+      "image": "evaluation/datasets/custom_real_v1/real_002.png",
+      "ground_truth": "evaluation/ground_truth/custom_real_v1/real_002.json",
+      "status": "pending"
+    },
+    {
+      "id": "real_003",
+      "image": "evaluation/datasets/custom_real_v1/real_003.png",
+      "ground_truth": "evaluation/ground_truth/custom_real_v1/real_003.json",
+      "status": "pending"
+    },
+    {
+      "id": "real_004",
+      "image": "evaluation/datasets/custom_real_v1/real_004.png",
+      "ground_truth": "evaluation/ground_truth/custom_real_v1/real_004.json",
+      "status": "pending"
+    },
+    {
+      "id": "real_005",
+      "image": "evaluation/datasets/custom_real_v1/real_005.png",
+      "ground_truth": "evaluation/ground_truth/custom_real_v1/real_005.json",
+      "status": "pending"
+    }
+  ]
+}
