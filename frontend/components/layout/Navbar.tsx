@@ -53,12 +53,16 @@ export function Navbar() {
           <div className="hidden sm:flex items-center gap-4">
             {!loading && user ? (
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-xs font-medium text-kairo-black max-w-[200px] truncate">
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-xs font-medium text-kairo-black max-w-[200px] truncate hover:border-kairo-orange/50 transition-colors"
+                  title="Go to Dashboard"
+                >
                   <UserIcon className="w-3.5 h-3.5 text-kairo-orange shrink-0" />
                   <span className="truncate">
                     {user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
                   </span>
-                </div>
+                </Link>
                 <button
                   onClick={() => signOut()}
                   className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-kairo-gray-500 hover:text-kairo-black border border-kairo-gray-200 rounded-kairo transition-colors"

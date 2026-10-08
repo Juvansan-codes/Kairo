@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
   title: "KAIRO — Metric-Aware Blueprint Intelligence",
@@ -13,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/lib/auth-context";
+import { AppShell } from "@/components/layout/AppShell";
 
 export default function RootLayout({
   children,
@@ -21,11 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased min-h-screen flex flex-col">
+      <body className="antialiased min-h-screen">
         <AuthProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>
