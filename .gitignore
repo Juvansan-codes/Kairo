@@ -54,3 +54,14 @@ outputs/*
 !outputs/.gitkeep
 evaluation/results/*
 !evaluation/results/.gitkeep
+
+# Ignore large backend directories
+backend/data/uploads/*
+backend/data/results/*
+backend/models/*
+backend/Raster2Seq/
+backend/outputs/
+backend/*.glb
+backend/*.png
+*.png
+*.glb

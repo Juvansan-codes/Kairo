@@ -1,4 +1,4 @@
-import abc
+﻿import abc
 import os
 import yaml
 import torch
@@ -26,8 +26,9 @@ class PerceptionModel(abc.ABC):
         pass
 
 class ResNetUNetPerception(PerceptionModel):
-    def __init__(self, run_dir: Path, device: str = "auto"):
+    def __init__(self, run_dir: Path, device: str = "auto", improve_walls: bool = True):
         self.run_dir = run_dir
+        self.improve_walls = improve_walls  # NEW: enable wall fragment improvement
         cfg_path = run_dir / "config.yaml"
         ckpt_path = run_dir / "best.safetensors"
         
@@ -136,20 +137,28 @@ class ResNetUNetPerception(PerceptionModel):
             cleaned[top:top + inner_h, left:left + inner_w] = mask[top:top + inner_h, left:left + inner_w]
             mask = cleaned
 
+        # NEW: Improve wall mask if enabled
+        if self.improve_walls:
+            from app.geometry.fragment_connection import improve_wall_mask
+            wall_mask_bool = (mask == 1)
+            improved_wall_mask = improve_wall_mask(
+                wall_mask_bool,
+                close_gaps_px=8,  # Aggressively close gaps
+                remove_small_fragments_px2=15  # Remove tiny noise
+            )
+            # Update the mask
+            mask[mask == 1] = 0  # Clear old walls
+            mask[improved_wall_mask] = 1  # Set improved walls
+
         inference_time = time.time() - t0
         
         # Construct the project schema
         semantic_regions = []
         class_counts = {}
         for idx, name in enumerate(CLASS_NAMES):
-            # We skip heavy contour polygon extraction here to keep it strictly perception/mask based. 
-            # Member 2's Geometry module will do the heavy lifting from the mask.
             count = int((mask == idx).sum())
             class_counts[name] = count
             
-            # Here we just pass the mask data conceptually. 
-            # We can't serialize raw numpy arrays in json trivially, but we can pass the mask reference 
-            # to the pipeline or extract bounding boxes. Let's return the mask itself for the geometry pipeline to consume.
             semantic_regions.append({
                 "class_id": idx,
                 "class_name": name,

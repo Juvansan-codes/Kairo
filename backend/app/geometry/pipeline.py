@@ -51,15 +51,15 @@ def run_mgr_pipeline(
     collinear_distance_tolerance_px: float = 3.0,
     collinear_gap_tolerance_px: float = 5.0,
     # Phase 7 intersection parameters
-    intersection_tolerance_px: float = 1.0,
-    endpoint_tolerance_px: float = 2.0,
+    intersection_tolerance_px: float = 15.0,
+    endpoint_tolerance_px: float = 15.0,
     min_segment_length_px: float = 1.0,
     # Phase 8 opening parameters
-    wall_distance_tolerance_px: float = 5.0,
-    projection_tolerance_px: float = 3.0,
+    wall_distance_tolerance_px: float = 25.0,
+    projection_tolerance_px: float = 15.0,
     # Phase 9 room polygonization parameters
-    min_room_area_px2: float = 25.0,
-    node_tolerance_px: float = 3.0,
+    min_room_area_px2: float = 100.0,
+    node_tolerance_px: float = 25.0,
     # Phase 10 calibration parameters
     scale_min_confidence: float = 0.0,
     scale_relative_tolerance: float = 0.10,

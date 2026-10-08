@@ -14,7 +14,7 @@ class ReconstructionService:
     def get_analysis_service(cls):
         if cls._analysis_service is None:
             # Load models on first use
-            cls._analysis_service = PerceptionAnalysisService()
+            cls._analysis_service = PerceptionAnalysisService(use_raster2seq=False)
         return cls._analysis_service
 
     @staticmethod

@@ -48,7 +48,7 @@ interface ModelProps {
   layers: SceneLayer[];
   onObjectClick?: (name: string) => void;
   onLoaded?: () => void;
-  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number }) => void;
+  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number; size: THREE.Vector3 }) => void;
 }
 
 function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded, onBoundsComputed }: ModelProps) {
@@ -67,23 +67,83 @@ function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded, onBoundsCompute
         const maxDim = Math.max(size.x, size.y, size.z);
         const effectiveDim = maxDim < 0.1 ? 10 : maxDim;
         const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
-        // Compute distance needed to fit the model within the FOV, add 50% margin
-        const distance = Math.abs(effectiveDim / 2 / Math.tan(fov / 2)) * 1.5;
-        // Clamp distance to avoid extreme values
+        // Tighter framing: 1.1 margin instead of 1.5
+        const distance = Math.abs(effectiveDim / 2 / Math.tan(fov / 2)) * 1.1;
         const safeDistance = Math.min(Math.max(distance, 5), 10000);
-        onBoundsComputed({ center, distance: safeDistance });
+        onBoundsComputed({ center, distance: safeDistance, size });
       }
       onLoaded?.();
     }
   }, [scene, camera, onLoaded, onBoundsComputed]);
 
-  // Apply layer visibility
+  // Apply layer visibility and architectural materials
   useEffect(() => {
     if (!scene) return;
     scene.traverse((child: THREE.Object3D) => {
+      // Visibility toggle based on layers
       for (const layer of layers) {
         if (child.name.toLowerCase().startsWith(layer.prefix.toLowerCase())) {
           child.visible = layer.visible;
+        }
+      }
+
+      // Material overrides for architectural visualization
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        
+        // Ensure normals exist for lighting
+        if (child.geometry && !child.geometry.hasAttribute('normal')) {
+          child.geometry.computeVertexNormals();
+        }
+
+        let current: THREE.Object3D | null = child;
+        let matchedName = "";
+        while (current) {
+          if (current.name) {
+            const lowerName = current.name.toLowerCase();
+            if (lowerName.includes("door") || lowerName.includes("win") || lowerName.includes("wall") || lowerName.includes("room") || lowerName.includes("floor")) {
+              matchedName = lowerName;
+              break;
+            }
+          }
+          current = current.parent;
+        }
+        
+        if (matchedName.includes("door")) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: "#F15A24", // Kairo Orange
+            roughness: 0.3,
+            metalness: 0.1,
+          });
+        } else if (matchedName.includes("win")) {
+          child.material = new THREE.MeshPhysicalMaterial({
+            color: "#64B5F6",
+            transmission: 0.8,
+            opacity: 1,
+            transparent: true,
+            roughness: 0.1,
+            metalness: 0.1,
+            ior: 1.5,
+          });
+        } else if (matchedName.includes("wall")) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: "#E5E7EB", // Clean light architectural gray
+            roughness: 0.9,
+            metalness: 0.05,
+          });
+        } else if (matchedName.includes("room") || matchedName.includes("floor")) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: "#F3F4F6", 
+            roughness: 1.0,
+            metalness: 0.0,
+          });
+        } else {
+          // Fallback material for any unmatched geometry
+          child.material = new THREE.MeshStandardMaterial({
+            color: "#D4D4D4", 
+            roughness: 0.8,
+          });
         }
       }
     });
@@ -111,13 +171,13 @@ function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded, onBoundsCompute
 interface ArchitecturalModelProps {
   layers: SceneLayer[];
   onObjectClick?: (name: string) => void;
-  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number }) => void;
+  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number; size: THREE.Vector3 }) => void;
 }
 
 function ArchitecturalModel({ layers, onObjectClick, onBoundsComputed }: ArchitecturalModelProps) {
   useEffect(() => {
     if (onBoundsComputed) {
-      onBoundsComputed({ center: new THREE.Vector3(0, 1.4, 0), distance: 16 });
+      onBoundsComputed({ center: new THREE.Vector3(0, 1.4, 0), distance: 16, size: new THREE.Vector3(12, 3, 8) });
     }
   }, [onBoundsComputed]);
 
@@ -457,6 +517,8 @@ interface SceneViewerProps {
   layers?: SceneLayer[];
   onObjectClick?: (name: string) => void;
   className?: string;
+  metadata?: any;
+  hasFailed?: boolean;
 }
 
 export function SceneViewer({
@@ -464,27 +526,46 @@ export function SceneViewer({
   layers = [],
   onObjectClick,
   className = "",
+  metadata = null,
+  hasFailed = false,
 }: SceneViewerProps) {
   const [loading, setLoading] = useState(true);
   const [cameraPreset, setCameraPreset] = useState<"default" | "top" | "front" | "side" | null>(null);
-  const [modelBounds, setModelBounds] = useState<{ center: THREE.Vector3; distance: number } | null>(null);
+  const [modelBounds, setModelBounds] = useState<{ center: THREE.Vector3; distance: number; size: THREE.Vector3 } | null>(null);
 
   const handleLoaded = useCallback(() => {
     setLoading(false);
     setCameraPreset("default");
   }, []);
 
-  const handleBoundsComputed = useCallback((bounds: { center: THREE.Vector3; distance: number }) => {
+  const handleBoundsComputed = useCallback((bounds: { center: THREE.Vector3; distance: number; size: THREE.Vector3 }) => {
     setModelBounds(bounds);
     setCameraPreset("default");
   }, []);
 
+  const groundY = 0; // Trimesh GLTF exporter always puts base at Y=0
+  const gridScale = modelBounds ? Math.max(modelBounds.size.x, modelBounds.size.z) * 2.5 : 200;
+  const isMetric = metadata?.coordinate_space === "metric";
+
   return (
     <div
-      className={`relative w-full h-full rounded-kairo overflow-hidden bg-kairo-gray-950 select-none ${className}`}
+      className={`relative w-full h-full rounded-kairo overflow-hidden bg-kairo-gray-50 select-none ${className}`}
       style={{ minHeight: 400 }}
     >
       {loading && modelUrl && <LoadingOverlay />}
+
+      {/* Scale & Coordinate System UI Indicator */}
+      {metadata && (
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-1 pointer-events-none">
+          <div className="px-3 py-1.5 bg-white/80 backdrop-blur-md border border-kairo-gray-200 rounded shadow-sm text-[11px] font-mono flex items-center gap-2 text-kairo-gray-700">
+            <span className={`w-1.5 h-1.5 rounded-full ${isMetric ? 'bg-green-500' : 'bg-amber-400'}`} />
+            <span>Scale: {isMetric && metadata.scale_mm_per_px ? `${metadata.scale_mm_per_px.toFixed(1)} mm/px` : 'Uncalibrated'}</span>
+          </div>
+          <div className="px-3 py-1.5 bg-white/80 backdrop-blur-md border border-kairo-gray-200 rounded shadow-sm text-[11px] font-mono text-kairo-gray-600">
+            Space: {isMetric ? 'Metric' : 'Relative'}
+          </div>
+        </div>
+      )}
 
       {/* Camera Viewport Presets Toolbar */}
       <div className="absolute top-4 right-4 z-20 flex flex-col gap-1.5">
@@ -492,7 +573,7 @@ export function SceneViewer({
           <button
             key={preset}
             onClick={() => setCameraPreset(preset)}
-            className="px-3 py-1.5 bg-kairo-gray-900/80 backdrop-blur-md border border-kairo-gray-800 text-kairo-gray-300 text-[10px] font-mono font-medium uppercase tracking-wider rounded hover:border-kairo-orange hover:text-kairo-orange transition-all shadow-md"
+            className="px-3 py-1.5 bg-white/80 backdrop-blur-md border border-kairo-gray-200 text-kairo-gray-700 text-[10px] font-mono font-bold uppercase tracking-wider rounded hover:border-kairo-orange hover:text-kairo-orange transition-all shadow-sm"
           >
             {preset === "default" ? "Isometric" : preset}
           </button>
@@ -501,18 +582,33 @@ export function SceneViewer({
 
       <Canvas
         shadows
-        camera={{ position: [9, 9, 9], fov: 48 }}
+        camera={{ position: [9, 9, 9], fov: 48, far: 50000 }}
         onCreated={() => {
           setLoading(false);
         }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
       >
-        <color attach="background" args={["#0c0c0c"]} />
-        <fog attach="fog" args={["#0c0c0c", 20, 42]} />
+        <color attach="background" args={["#F5F5F7"]} />
+        <fog attach="fog" args={["#F5F5F7", gridScale * 1.5 + 10, gridScale * 3.5 + 50]} />
 
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[7, 12, 6]} intensity={0.9} castShadow />
-        <directionalLight position={[-4, 8, -5]} intensity={0.35} />
+        {/* Professional Architectural Lighting */}
+        <hemisphereLight skyColor="#ffffff" groundColor="#d4d4d4" intensity={0.6} />
+        
+        {/* Key Light scaled to scene bounds */}
+        <directionalLight 
+          position={[gridScale * 0.2, gridScale * 0.4, gridScale * 0.3]} 
+          intensity={1.2} 
+          castShadow 
+          shadow-mapSize={[2048, 2048]} 
+          shadow-camera-near={0.1}
+          shadow-camera-far={gridScale * 2 + 1000} 
+          shadow-camera-left={-gridScale / 2}
+          shadow-camera-right={gridScale / 2}
+          shadow-camera-top={gridScale / 2}
+          shadow-camera-bottom={-gridScale / 2}
+          shadow-bias={-0.001} 
+        />
+        <directionalLight position={[-gridScale * 0.2, gridScale * 0.2, -gridScale * 0.2]} intensity={0.4} />
 
         <Suspense fallback={null}>
           <ModelErrorBoundary
@@ -533,28 +629,49 @@ export function SceneViewer({
             )}
           </ModelErrorBoundary>
 
+          {/* Reference Ground Plane (Presentation Layer) */}
+          {modelBounds && (
+            <mesh 
+              position={[modelBounds.center.x, groundY - 0.02, modelBounds.center.z]} 
+              rotation={[-Math.PI / 2, 0, 0]} 
+              receiveShadow
+            >
+              <planeGeometry args={[Math.max(gridScale, 50), Math.max(gridScale, 50)]} />
+              <meshStandardMaterial color="#FFFFFF" roughness={1} metalness={0} />
+            </mesh>
+          )}
+
           <ContactShadows
-            opacity={0.35}
-            scale={22}
-            blur={2.4}
-            far={10}
-            position={[0, -0.01, 0]}
+            opacity={0.4}
+            scale={gridScale}
+            blur={2.0}
+            far={Math.max(10, gridScale * 0.1)}
+            position={[modelBounds?.center.x || 0, groundY, modelBounds?.center.z || 0]}
           />
         </Suspense>
 
-        <OrbitControls makeDefault enableDamping />
+        <OrbitControls 
+          makeDefault 
+          enableDamping 
+          dampingFactor={0.05}
+          minPolarAngle={0} 
+          maxPolarAngle={Math.PI / 2 + 0.1} 
+        />
 
         <CameraSetter preset={cameraPreset} bounds={modelBounds} onDone={() => setCameraPreset(null)} />
 
-        {/* Blueprint Ground Reference Grid */}
-        <gridHelper args={[24, 48, "#F15A24", "#1e1e1e"]} />
+        {/* Subtle Architectural Grid */}
+        <gridHelper 
+          args={[Math.max(gridScale, 50), 40, "#E5E7EB", "#F3F4F6"]} 
+          position={[modelBounds?.center.x || 0, groundY - 0.01, modelBounds?.center.z || 0]} 
+        />
       </Canvas>
 
       {/* Model status pill badge */}
       <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-        <div className="px-3 py-1 bg-kairo-gray-900/80 backdrop-blur border border-kairo-gray-800 rounded text-[11px] text-kairo-gray-400 font-mono flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-kairo-orange animate-pulse" />
-          <span>{modelUrl ? "GLB Render Active" : "Interactive Metric Engine"}</span>
+        <div className={`px-3 py-1 bg-white/80 backdrop-blur border shadow-sm rounded text-[11px] font-mono flex items-center gap-2 ${hasFailed ? 'border-red-200 text-red-600' : 'border-kairo-gray-200 text-kairo-gray-600'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${hasFailed ? 'bg-red-500' : 'bg-kairo-orange'}`} />
+          <span>{hasFailed ? "Reconstruction Failed (Fallback Mode)" : (modelUrl ? "GLB Render Active" : "Interactive Metric Engine")}</span>
         </div>
       </div>
     </div>

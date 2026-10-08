@@ -28,7 +28,7 @@ def generate_scene(mgr_result, output_path: str) -> Dict[str, Any]:
         else:
             return (px_pt[0], px_pt[1])
 
-    def create_wall_box(start_p, end_p, w_start, w_dir, z_min, z_max, thickness):
+    def create_wall_box(start_p, end_p, w_start, w_dir, z_min, z_max, thickness, color):
         length = end_p - start_p
         if length < 1e-4: return None
         height = z_max - z_min
@@ -47,8 +47,8 @@ def generate_scene(mgr_result, output_path: str) -> Dict[str, Any]:
         # Translate to midpoint
         box.apply_translation([mid_xy[0], mid_xy[1], z_min + height / 2.0])
         
-        # Add visual distinction based on type
-        # In a real app we'd assign materials, but trimesh default visual is fine for now.
+        # Apply color
+        box.visual.face_colors = color
         return box
 
     # 1. Walls & Openings (Robust 1D Segments)
@@ -68,17 +68,14 @@ def generate_scene(mgr_result, output_path: str) -> Dict[str, Any]:
         for o in mgr_result.doors + mgr_result.windows:
             if o.wall_id == wall.id:
                 if use_metric:
-                    # Metric points were not originally computed for openings in MGR, 
-                    # so we scale the pixel points to meters manually here.
-                    o_start = (o.start[0] * scale_mm / 1000.0, o.start[1] * scale_mm / 1000.0)
-                    o_end = (o.end[0] * scale_mm / 1000.0, o.end[1] * scale_mm / 1000.0)
+                    o_start_scaled = (o.start[0] * scale_mm / 1000.0, o.start[1] * scale_mm / 1000.0)
+                    o_end_scaled = (o.end[0] * scale_mm / 1000.0, o.end[1] * scale_mm / 1000.0)
                 else:
-                    o_start = o.start
-                    o_end = o.end
+                    o_start_scaled = o.start
+                    o_end_scaled = o.end
                 
-                # Project onto w_dir
-                p1 = np.dot(np.array(o_start) - w_start, w_dir)
-                p2 = np.dot(np.array(o_end) - w_start, w_dir)
+                p1 = np.dot(np.array(o_start_scaled) - w_start, w_dir)
+                p2 = np.dot(np.array(o_end_scaled) - w_start, w_dir)
                 o_min, o_max = min(p1, p2), max(p1, p2)
                 wall_openings.append((o_min, o_max, o.type))
                 
@@ -91,26 +88,36 @@ def generate_scene(mgr_result, output_path: str) -> Dict[str, Any]:
             o_max = max(0.0, min(w_len, o_max))
             
             if o_min > current_p:
-                box = create_wall_box(current_p, o_min, w_start, w_dir, 0.0, WALL_HEIGHT, WALL_THICKNESS)
+                box = create_wall_box(current_p, o_min, w_start, w_dir, 0.0, WALL_HEIGHT, WALL_THICKNESS, [100, 100, 100, 255])
                 if box: scene.add_geometry(box, node_name=f"wall_{wall.id}_seg_{current_p}")
                 
             if o_max > o_min:
                 if o_type == "door":
+                    # Lintel above door
                     if DOOR_HEIGHT < WALL_HEIGHT:
-                        box = create_wall_box(o_min, o_max, w_start, w_dir, DOOR_HEIGHT, WALL_HEIGHT, WALL_THICKNESS)
-                        if box: scene.add_geometry(box, node_name=f"wall_{wall.id}_door_{o_min}")
+                        box = create_wall_box(o_min, o_max, w_start, w_dir, DOOR_HEIGHT, WALL_HEIGHT, WALL_THICKNESS, [100, 100, 100, 255])
+                        if box: scene.add_geometry(box, node_name=f"wall_{wall.id}_lintel_{o_min}")
+                    # Actual Door Panel
+                    door_box = create_wall_box(o_min, o_max, w_start, w_dir, 0.0, DOOR_HEIGHT, WALL_THICKNESS * 0.2, [241, 90, 36, 255])
+                    if door_box: scene.add_geometry(door_box, node_name=f"door_{wall.id}_{o_min}")
                 elif o_type == "window":
-                    box_sill = create_wall_box(o_min, o_max, w_start, w_dir, 0.0, WINDOW_BOTTOM, WALL_THICKNESS)
-                    if box_sill: scene.add_geometry(box_sill, node_name=f"wall_{wall.id}_win_sill_{o_min}")
+                    # Sill below window
+                    box_sill = create_wall_box(o_min, o_max, w_start, w_dir, 0.0, WINDOW_BOTTOM, WALL_THICKNESS, [100, 100, 100, 255])
+                    if box_sill: scene.add_geometry(box_sill, node_name=f"wall_{wall.id}_sill_{o_min}")
                     
+                    # Lintel above window
                     if WINDOW_TOP < WALL_HEIGHT:
-                        box_lintel = create_wall_box(o_min, o_max, w_start, w_dir, WINDOW_TOP, WALL_HEIGHT, WALL_THICKNESS)
-                        if box_lintel: scene.add_geometry(box_lintel, node_name=f"wall_{wall.id}_win_lintel_{o_min}")
+                        box_lintel = create_wall_box(o_min, o_max, w_start, w_dir, WINDOW_TOP, WALL_HEIGHT, WALL_THICKNESS, [100, 100, 100, 255])
+                        if box_lintel: scene.add_geometry(box_lintel, node_name=f"wall_{wall.id}_lintel_{o_min}")
+                        
+                    # Actual Window Glass
+                    glass_box = create_wall_box(o_min, o_max, w_start, w_dir, WINDOW_BOTTOM, WINDOW_TOP, WALL_THICKNESS * 0.1, [100, 181, 246, 160])
+                    if glass_box: scene.add_geometry(glass_box, node_name=f"win_{wall.id}_{o_min}")
                         
             current_p = max(current_p, o_max)
             
         if current_p < w_len:
-            box = create_wall_box(current_p, w_len, w_start, w_dir, 0.0, WALL_HEIGHT, WALL_THICKNESS)
+            box = create_wall_box(current_p, w_len, w_start, w_dir, 0.0, WALL_HEIGHT, WALL_THICKNESS, [100, 100, 100, 255])
             if box: scene.add_geometry(box, node_name=f"wall_{wall.id}_seg_end")
 
     # 2. Rooms (Floors)

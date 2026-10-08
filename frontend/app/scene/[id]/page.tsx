@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { LayerControls } from "@/components/viewer/LayerControls";
@@ -172,9 +172,28 @@ export default function ScenePage() {
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"3d" | "2d" | "split">("3d");
 
-  // In production this comes from API; in mock mode use demo data
-  const metadata: ReconstructionMetadata = MOCK_METADATA;
-  const modelUrl = USE_MOCK ? null : `http://localhost:8000/api/result/${sceneId}/model`;
+  const [metadata, setMetadata] = useState<ReconstructionMetadata | null>(USE_MOCK ? MOCK_METADATA : null);
+  const [hasFailed, setHasFailed] = useState(false);
+  const modelUrl = USE_MOCK || hasFailed ? null : `http://localhost:8000/api/result/${sceneId}/model`;
+
+  useEffect(() => {
+    if (!USE_MOCK) {
+      fetch(`http://localhost:8000/api/result/${sceneId}/metadata`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "failed") {
+            setHasFailed(true);
+            setMetadata(data.metadata);
+          } else {
+            setMetadata(data.metadata);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch metadata:", err);
+          setHasFailed(true);
+        });
+    }
+  }, [sceneId]);
 
   const handleLayerToggle = useCallback((id: string) => {
     setLayers((prev) =>
@@ -274,6 +293,8 @@ export default function ScenePage() {
                 layers={layers}
                 onObjectClick={handleObjectClick}
                 className="w-full h-full rounded-none"
+                metadata={metadata}
+                hasFailed={hasFailed}
               />
             </div>
           )}
@@ -296,7 +317,7 @@ export default function ScenePage() {
             <LayerControls layers={layers} onToggle={handleLayerToggle} />
 
             <div className="border-t border-kairo-gray-100 pt-6">
-              <SceneStats metadata={metadata} />
+              {metadata ? <SceneStats metadata={metadata} /> : <div className="text-xs text-kairo-gray-500">Loading stats...</div>}
             </div>
 
             {/* Selected object info */}
