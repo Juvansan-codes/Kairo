@@ -1,0 +1,35 @@
+{
+  "dataset_version": "1.0",
+  "samples": [
+    {
+      "id": "plan_001",
+      "image": "evaluation/datasets/custom_synthetic_v1/plan_001.png",
+      "ground_truth": "evaluation/ground_truth/custom_synthetic_v1/plan_001.json",
+      "status": "annotated"
+    },
+    {
+      "id": "plan_002",
+      "image": "evaluation/datasets/custom_synthetic_v1/plan_002.png",
+      "ground_truth": "evaluation/ground_truth/custom_synthetic_v1/plan_002.json",
+      "status": "annotated"
+    },
+    {
+      "id": "plan_003",
+      "image": "evaluation/datasets/custom_synthetic_v1/plan_003.png",
+      "ground_truth": "evaluation/ground_truth/custom_synthetic_v1/plan_003.json",
+      "status": "annotated"
+    },
+    {
+      "id": "plan_004",
+      "image": "evaluation/datasets/custom_synthetic_v1/plan_004.png",
+      "ground_truth": "evaluation/ground_truth/custom_synthetic_v1/plan_004.json",
+      "status": "annotated"
+    },
+    {
+      "id": "plan_005",
+      "image": "evaluation/datasets/custom_synthetic_v1/plan_005.png",
+      "ground_truth": "evaluation/ground_truth/custom_synthetic_v1/plan_005.json",
+      "status": "annotated"
+    }
+  ]
+}
