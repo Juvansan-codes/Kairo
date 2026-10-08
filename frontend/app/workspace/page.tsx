@@ -11,11 +11,14 @@ import { ArrowRight, Download, ExternalLink, AlertTriangle, RotateCw } from "luc
 import type { PipelineStage, ReconstructionMetadata } from "@/lib/types";
 import { submitReconstruction, getJobStatus, getMetadata, getModel } from "@/lib/api";
 import { USE_MOCK, MOCK_METADATA, createMockPipeline } from "@/lib/mock";
+import { useAuth } from "@/lib/auth-context";
+import { saveDbReconstruction, uploadBlueprintFile } from "@/lib/supabase";
 
 type WorkspaceState = "upload" | "preview" | "processing" | "completed" | "failed";
 
 export default function WorkspacePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [state, setState] = useState<WorkspaceState>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -52,11 +55,24 @@ export default function WorkspacePage() {
     const stages = createMockPipeline();
     setPipeline(stages);
 
+    const generatedId = `rec-${Date.now().toString(36)}`;
+    setJobId(generatedId);
+
     const advanceStage = (index: number) => {
       if (index >= stages.length) {
         setMetadata(MOCK_METADATA);
         setModelUrl("/sample.glb");
         setState("completed");
+
+        // Save reconstruction to Supabase DB
+        saveDbReconstruction({
+          id: generatedId,
+          name: file?.name ? file.name.replace(/\.[^/.]+$/, "") : "Spatial Reconstruction",
+          status: "completed",
+          userId: user?.id,
+          modelUrl: "/sample.glb",
+          metadata: MOCK_METADATA,
+        });
         return;
       }
 
@@ -76,7 +92,7 @@ export default function WorkspacePage() {
     };
 
     setTimeout(() => advanceStage(0), 500);
-  }, []);
+  }, [file?.name, user?.id]);
 
   // ── Real pipeline with polling ──
   const startReconstruction = useCallback(async () => {
@@ -84,6 +100,9 @@ export default function WorkspacePage() {
     setState("processing");
     setPipeline(createMockPipeline());
     setError(null);
+
+    // Optionally upload to Supabase storage in background
+    uploadBlueprintFile(file, `blueprints/${Date.now()}_${file.name}`).catch(() => {});
 
     if (USE_MOCK) {
       simulatePipeline();
@@ -111,10 +130,26 @@ export default function WorkspacePage() {
               prev.map((s) => ({ ...s, status: "completed" as const }))
             );
             setState("completed");
+
+            // Save completed reconstruction to Supabase DB
+            saveDbReconstruction({
+              id: job_id,
+              name: file.name.replace(/\.[^/.]+$/, ""),
+              status: "completed",
+              userId: user?.id,
+              modelUrl: model.model_url,
+              metadata: meta.metadata,
+            });
           } else if (status.status === "failed") {
             clearInterval(pollInterval);
             setState("failed");
             setError("KAIRO could not reliably process this blueprint.");
+            saveDbReconstruction({
+              id: job_id,
+              name: file.name.replace(/\.[^/.]+$/, ""),
+              status: "failed",
+              userId: user?.id,
+            });
           }
         } catch {
           clearInterval(pollInterval);
@@ -126,7 +161,7 @@ export default function WorkspacePage() {
       setState("failed");
       setError("Failed to start reconstruction. Please check the backend connection.");
     }
-  }, [file, simulatePipeline]);
+  }, [file, simulatePipeline, user?.id]);
 
   // Cleanup
   useEffect(() => {

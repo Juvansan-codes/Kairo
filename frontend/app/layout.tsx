@@ -7,7 +7,12 @@ export const metadata: Metadata = {
   title: "KAIRO — Metric-Aware Blueprint Intelligence",
   description:
     "Transform architectural blueprints into metrically consistent, navigable 3D environments.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
+
+import { AuthProvider } from "@/lib/auth-context";
 
 export default function RootLayout({
   children,
@@ -17,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <AuthProvider>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

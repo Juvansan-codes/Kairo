@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { LogIn, LogOut, User as UserIcon } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const navLinks = [
-  { href: "/", label: "Home" },
   { href: "/workspace", label: "Workspace" },
   { href: "/history", label: "History" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const { user, signOut, loading } = useAuth();
+  const isHomePage = pathname === "/";
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-kairo-gray-200 bg-white/95 backdrop-blur-sm">
@@ -25,46 +27,76 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Navigation */}
-          <div className="hidden sm:flex items-center gap-8">
-            {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`text-sm font-medium transition-colors duration-200 ${
-                    isActive
-                      ? "text-kairo-black"
-                      : "text-kairo-gray-500 hover:text-kairo-black"
-                  }`}
+          {/* Navigation - hidden on home screen */}
+          {!isHomePage && (
+            <div className="hidden sm:flex items-center gap-8">
+              {navLinks.map((link) => {
+                const isActive = pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`text-sm font-medium transition-colors duration-200 ${
+                      isActive
+                        ? "text-kairo-black"
+                        : "text-kairo-gray-500 hover:text-kairo-black"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Primary action / Auth state */}
+          <div className="hidden sm:flex items-center gap-4">
+            {!loading && user ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-xs font-medium text-kairo-black max-w-[200px] truncate">
+                  <UserIcon className="w-3.5 h-3.5 text-kairo-orange shrink-0" />
+                  <span className="truncate">
+                    {user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-kairo-gray-500 hover:text-kairo-black border border-kairo-gray-200 rounded-kairo transition-colors"
+                  title="Sign Out"
                 >
-                  {link.label}
-                </Link>
-              );
-            })}
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth"
+                className="btn-primary text-sm inline-flex items-center gap-2"
+              >
+                Login / Sign Up
+                <LogIn className="w-4 h-4" />
+              </Link>
+            )}
           </div>
 
-          {/* Primary action */}
-          <Link
-            href="/workspace"
-            className="btn-primary text-sm hidden sm:inline-flex"
-          >
-            New Reconstruction
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-
-          {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center gap-4">
-            <Link
-              href="/workspace"
-              className="btn-primary text-xs px-4 py-2"
-            >
-              New
-            </Link>
+          {/* Mobile menu action */}
+          <div className="sm:hidden flex items-center gap-3">
+            {!loading && user ? (
+              <button
+                onClick={() => signOut()}
+                className="inline-flex items-center gap-1 text-xs text-kairo-gray-600 px-2.5 py-1.5 border border-kairo-gray-200 rounded-kairo"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Sign Out
+              </button>
+            ) : (
+              <Link
+                href="/auth"
+                className="btn-primary text-xs px-3 py-1.5"
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </div>

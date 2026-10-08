@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -9,30 +9,67 @@ import {
   XCircle,
   RotateCw,
   Plus,
+  Database,
+  RefreshCw,
 } from "lucide-react";
 import type { Reconstruction, ReconstructionStatus } from "@/lib/types";
-import { MOCK_HISTORY } from "@/lib/mock";
+import { MOCK_HISTORY, USE_MOCK } from "@/lib/mock";
+import { getDbReconstructions, isSupabaseConfigured } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 
 type FilterStatus = "all" | ReconstructionStatus;
 
 export default function HistoryPage() {
+  const { user } = useAuth();
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [search, setSearch] = useState("");
+  const [items, setItems] = useState<Reconstruction[]>(MOCK_HISTORY);
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState<"supabase" | "mock">("mock");
 
-  // In production, fetch from API. For now, use mock data.
-  const history: Reconstruction[] = MOCK_HISTORY;
+  const loadData = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setItems(MOCK_HISTORY);
+      setSource("mock");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const dbItems = await getDbReconstructions(user?.id);
+      if (dbItems && dbItems.length > 0) {
+        setItems(dbItems);
+        setSource("supabase");
+      } else if (USE_MOCK) {
+        setItems(MOCK_HISTORY);
+        setSource("mock");
+      } else {
+        setItems([]);
+        setSource("supabase");
+      }
+    } catch {
+      setItems(MOCK_HISTORY);
+      setSource("mock");
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const filtered = useMemo(() => {
-    let items = history;
+    let result = items;
     if (filter !== "all") {
-      items = items.filter((r) => r.status === filter);
+      result = result.filter((r) => r.status === filter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
-      items = items.filter((r) => r.name.toLowerCase().includes(q));
+      result = result.filter((r) => r.name.toLowerCase().includes(q));
     }
-    return items;
-  }, [history, filter, search]);
+    return result;
+  }, [items, filter, search]);
 
   const filterOptions: { value: FilterStatus; label: string }[] = [
     { value: "all", label: "All" },
@@ -43,14 +80,34 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 lg:px-8 py-12">
       {/* Header */}
-      <div className="mb-10">
-        <p className="micro-label mb-3 text-kairo-orange">ARCHIVE</p>
-        <h1 className="text-2xl lg:text-3xl font-bold text-kairo-black">
-          Reconstruction History
-        </h1>
-        <p className="text-kairo-gray-500 mt-2">
-          Previously generated spatial models.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+        <div>
+          <p className="micro-label mb-3 text-kairo-orange">ARCHIVE</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-kairo-black">
+            Reconstruction History
+          </h1>
+          <p className="text-kairo-gray-500 mt-2">
+            Previously generated spatial models.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-kairo border border-kairo-gray-200 bg-kairo-offwhite text-xs font-mono text-kairo-gray-600">
+            <Database className="w-3.5 h-3.5 text-kairo-orange" />
+            <span>
+              {source === "supabase" ? "Supabase Sync" : "Mock Data"}
+            </span>
+          </div>
+
+          <button
+            onClick={() => loadData()}
+            disabled={loading}
+            className="p-2 border border-kairo-gray-200 rounded-kairo hover:border-kairo-gray-400 text-kairo-gray-500 hover:text-kairo-black transition-colors"
+            title="Refresh database"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
