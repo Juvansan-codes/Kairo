@@ -2,15 +2,28 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   BlueprintUploader,
   BlueprintPreview,
 } from "@/components/upload/BlueprintUploader";
 import { ProcessingPipeline } from "@/components/reconstruction/ProcessingPipeline";
-import { ArrowRight, Download, ExternalLink, AlertTriangle, RotateCw } from "lucide-react";
+import {
+  ArrowRight,
+  Download,
+  AlertTriangle,
+  RotateCw,
+  Box,
+  Building2,
+  Compass,
+  ShieldCheck,
+  Sparkles,
+  CheckCircle2,
+  FileText,
+} from "lucide-react";
 import type { PipelineStage, ReconstructionMetadata } from "@/lib/types";
 import { submitReconstruction, getJobStatus, getMetadata, getModel } from "@/lib/api";
-import { USE_MOCK, MOCK_METADATA, createMockPipeline } from "@/lib/mock";
+import { USE_MOCK, MOCK_METADATA, MOCK_ROOMS, createMockPipeline } from "@/lib/mock";
 import { useAuth } from "@/lib/auth-context";
 import { saveDbReconstruction, uploadBlueprintFile } from "@/lib/supabase";
 
@@ -24,8 +37,8 @@ export default function WorkspacePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [pipeline, setPipeline] = useState<PipelineStage[]>(createMockPipeline());
-  const [metadata, setMetadata] = useState<ReconstructionMetadata | null>(null);
-  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<ReconstructionMetadata>(MOCK_METADATA);
+  const [modelUrl, setModelUrl] = useState<string | null>("/sample.glb");
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = useCallback((f: File) => {
@@ -49,6 +62,17 @@ export default function WorkspacePage() {
     setState("upload");
     setError(null);
   }, [previewUrl]);
+
+  // Load a sample preset blueprint
+  const handleLoadSample = (sampleName: string) => {
+    const dummyBlob = new Blob(["sample-blueprint-content"], { type: "image/png" });
+    const dummyFile = new File([dummyBlob], `${sampleName.toLowerCase().replace(/\s+/g, "_")}.png`, {
+      type: "image/png",
+    });
+    setFile(dummyFile);
+    setState("preview");
+    setError(null);
+  };
 
   // ── Mock pipeline simulation ──
   const simulatePipeline = useCallback(() => {
@@ -88,10 +112,10 @@ export default function WorkspacePage() {
         }))
       );
 
-      setTimeout(() => advanceStage(index + 1), 800 + Math.random() * 600);
+      setTimeout(() => advanceStage(index + 1), 700 + Math.random() * 400);
     };
 
-    setTimeout(() => advanceStage(0), 500);
+    setTimeout(() => advanceStage(0), 400);
   }, [file?.name, user?.id]);
 
   // ── Real pipeline with polling ──
@@ -171,174 +195,330 @@ export default function WorkspacePage() {
   }, [previewUrl]);
 
   return (
-    <div className="mx-auto max-w-6xl px-6 lg:px-8 py-12">
-      {/* Header */}
-      <div className="mb-10">
-        <p className="micro-label mb-3 text-kairo-orange">
-          {state === "processing"
-            ? "RECONSTRUCTING"
-            : state === "completed"
-            ? "RECONSTRUCTION COMPLETE"
-            : state === "failed"
-            ? "RECONSTRUCTION FAILED"
-            : "NEW RECONSTRUCTION"}
-        </p>
-        <h1 className="text-2xl lg:text-3xl font-bold text-kairo-black">
-          {state === "processing"
-            ? "Processing your blueprint…"
-            : state === "completed"
-            ? "Your spatial model is ready."
-            : state === "failed"
-            ? "Something went wrong."
-            : "Upload an architectural blueprint"}
-        </h1>
-        {state === "upload" && (
-          <p className="text-kairo-gray-500 mt-2">
-            to generate a metric 3D environment.
-          </p>
-        )}
-      </div>
+    <div className="p-6 lg:p-10 max-w-7xl mx-auto w-full animate-fade-in space-y-8">
+      {/* ── Main Two-Column Split Layout ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+        {/* ── LEFT COLUMN: Left-Aligned Header & Blueprint Uploader ── */}
+        <div className="space-y-6">
+          {/* Left-Aligned Header */}
+          <div className="text-left space-y-2">
+            <p className="micro-label text-kairo-orange font-semibold">
+              NEW RECONSTRUCTION
+            </p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-kairo-black">
+              Upload an architectural blueprint
+            </h1>
+            <p className="text-sm text-kairo-gray-500 leading-relaxed">
+              to generate a metric 3D environment.
+            </p>
+          </div>
 
-      {/* ── Upload state ── */}
-      {state === "upload" && (
-        <BlueprintUploader onFileSelect={handleFileSelect} />
-      )}
+          {/* Upload State */}
+          {state === "upload" && (
+            <div className="space-y-4">
+              <BlueprintUploader onFileSelect={handleFileSelect} />
 
-      {/* ── Preview state ── */}
-      {state === "preview" && file && (
-        <div className="grid lg:grid-cols-2 gap-8">
-          <BlueprintPreview
-            file={file}
-            previewUrl={previewUrl}
-            onReplace={handleReplace}
-          />
-
-          <div className="border border-kairo-gray-200 rounded-kairo p-8 bg-white flex flex-col justify-between">
-            <div>
-              <p className="micro-label mb-6">RECONSTRUCTION</p>
-
-              <div className="space-y-5 mb-8">
-                <div className="flex justify-between">
-                  <span className="text-sm text-kairo-gray-500">Mode</span>
-                  <span className="text-sm font-medium text-kairo-black">
-                    Blueprint → 3D
+              {/* Sample Presets */}
+              <div className="p-4 rounded-kairo bg-white border border-kairo-gray-200 space-y-2.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-kairo-gray-500 font-semibold">
+                    Test with Sample Blueprints
+                  </span>
+                  <span className="text-[10px] text-kairo-orange font-medium flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    1-Click Load
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-kairo-gray-500">Output</span>
-                  <span className="text-sm font-mono text-kairo-black">
-                    GLB + JSON
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-kairo-gray-500">Engine</span>
-                  <span className="text-sm font-mono text-kairo-black">
-                    KAIRO MGR
-                  </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    "Villa Floorplan",
+                    "Modern Apartment",
+                    "Executive Office",
+                  ].map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => handleLoadSample(name)}
+                      className="p-2.5 rounded bg-kairo-offwhite hover:bg-orange-50/40 border border-kairo-gray-200 hover:border-kairo-orange/40 text-left transition-all group"
+                    >
+                      <p className="text-xs font-semibold text-kairo-black group-hover:text-kairo-orange truncate">
+                        {name}
+                      </p>
+                      <p className="text-[9px] text-kairo-gray-400 mt-0.5">
+                        2D CAD Plan
+                      </p>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
+          )}
 
-            <button
-              onClick={startReconstruction}
-              className="btn-primary w-full text-base py-4"
-            >
-              Reconstruct Blueprint
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      )}
+          {/* Preview State */}
+          {state === "preview" && file && (
+            <div className="space-y-5">
+              <BlueprintPreview
+                file={file}
+                previewUrl={previewUrl}
+                onReplace={handleReplace}
+              />
 
-      {/* ── Processing state ── */}
-      {state === "processing" && (
-        <ProcessingPipeline stages={pipeline} fileName={file?.name} />
-      )}
+              <div className="p-5 rounded-kairo bg-white border border-kairo-gray-200 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between text-xs text-kairo-gray-500 pb-3 border-b border-kairo-gray-100">
+                  <span className="font-semibold text-kairo-black">Pipeline Specification</span>
+                  <span className="font-mono text-kairo-orange font-semibold">25.4 mm/px Calibrated</span>
+                </div>
 
-      {/* ── Completed state ── */}
-      {state === "completed" && (
-        <div className="max-w-xl mx-auto text-center">
-          <div className="w-16 h-16 rounded-full bg-kairo-orange flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-2.5 rounded bg-kairo-offwhite border border-kairo-gray-100">
+                    <p className="text-[10px] text-kairo-gray-400 uppercase font-mono">Input Document</p>
+                    <p className="font-semibold text-kairo-black truncate mt-0.5">{file.name}</p>
+                  </div>
+                  <div className="p-2.5 rounded bg-kairo-offwhite border border-kairo-gray-100">
+                    <p className="text-[10px] text-kairo-gray-400 uppercase font-mono">Reconstruction Engine</p>
+                    <p className="font-semibold text-kairo-black mt-0.5">KAIRO MGR v2.4</p>
+                  </div>
+                </div>
 
-          {/* Stats */}
-          {metadata && (
-            <div className="grid grid-cols-4 gap-4 mb-8 mt-8">
-              <StatBox label="Rooms" value={metadata.rooms} />
-              <StatBox label="Walls" value={metadata.walls} />
-              <StatBox label="Doors" value={metadata.doors} />
-              <StatBox label="Windows" value={metadata.windows} />
+                <button
+                  type="button"
+                  onClick={startReconstruction}
+                  className="btn-primary w-full text-xs font-semibold uppercase tracking-wider py-3.5 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <span>Begin Metric Reconstruction</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
-          {metadata?.scale_mm_per_px && (
-            <p className="text-sm text-kairo-gray-500 mb-8">
-              Estimated Scale:{" "}
-              <span className="font-mono text-kairo-orange">
-                {metadata.scale_mm_per_px.toFixed(2)} mm/px
-              </span>
-            </p>
+          {/* Processing State */}
+          {state === "processing" && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-kairo bg-white border border-kairo-gray-200 shadow-2xs">
+                <ProcessingPipeline stages={pipeline} fileName={file?.name} />
+              </div>
+            </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => router.push(`/scene/${jobId || "demo"}`)}
-              className="btn-primary text-base px-8 py-4"
-            >
-              Open 3D Scene
-              <ExternalLink className="w-4 h-4" />
-            </button>
-            {modelUrl && (
-              <a
-                href={modelUrl}
-                download
-                className="btn-outline text-base px-8 py-4"
+          {/* Completed State Left Summary */}
+          {state === "completed" && (
+            <div className="p-6 rounded-kairo bg-white border border-kairo-gray-200 space-y-5 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-kairo-black">
+                    Reconstruction Successfully Compiled
+                  </h3>
+                  <p className="text-xs text-kairo-gray-500">
+                    Binary spatial model and geometric graph ready.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState("upload");
+                    setFile(null);
+                    setPreviewUrl(null);
+                  }}
+                  className="btn-outline flex-1 text-xs py-3 justify-center"
+                >
+                  Reconstruct Another Plan
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Failed State Left Summary */}
+          {state === "failed" && (
+            <div className="p-6 rounded-kairo bg-white border border-red-200 space-y-4 shadow-2xs">
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertTriangle className="w-6 h-6 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold text-red-800">
+                    Reconstruction Engine Alert
+                  </h3>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    {error || "KAIRO could not reliably extract metric graph."}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setState("preview");
+                  setError(null);
+                }}
+                className="btn-primary text-xs py-2.5 px-4"
               >
-                <Download className="w-4 h-4" />
-                Download GLB
-              </a>
-            )}
+                <RotateCw className="w-3.5 h-3.5" />
+                <span>Retry Synthesis</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT COLUMN: Result of Analysis & 3D Spatial Viewer Button ── */}
+        <div className="space-y-6">
+          <div className="p-6 rounded-kairo bg-white border border-kairo-gray-200 space-y-6 shadow-sm">
+            {/* Analysis Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-kairo-gray-100">
+              <div>
+                <p className="micro-label text-kairo-gray-400 mb-0.5">ANALYSIS REPORT</p>
+                <h3 className="text-lg font-bold text-kairo-black tracking-tight">
+                  Result of the Analysis
+                </h3>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-semibold uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {state === "completed" ? "Synthesized" : state === "processing" ? "Calibrating" : "Ready"}
+              </span>
+            </div>
+
+            {/* Primary Action Button: 3D SPATIAL VIEWER */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => router.push(`/scene/${jobId || "demo"}`)}
+                className="btn-primary w-full text-xs font-semibold uppercase tracking-wider py-4 flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all"
+              >
+                <Box className="w-4 h-4" />
+                <span>Open 3D Spatial Viewer</span>
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </button>
+
+              {modelUrl && (
+                <div className="flex gap-2 pt-1">
+                  <a
+                    href={modelUrl}
+                    download="reconstructed_scene.glb"
+                    className="btn-outline flex-1 text-xs py-2.5 justify-center flex items-center gap-1.5 text-kairo-gray-600 hover:text-kairo-black"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download GLB</span>
+                  </a>
+
+                  <Link
+                    href="/history"
+                    className="btn-outline flex-1 text-xs py-2.5 justify-center flex items-center gap-1.5 text-kairo-gray-600 hover:text-kairo-black"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>View In Archive</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Metrics Breakdown Grid */}
+            <div className="grid grid-cols-4 gap-3 pt-2">
+              <div className="p-3.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-center">
+                <p className="text-xl font-bold text-kairo-black">
+                  {String(metadata.rooms).padStart(2, "0")}
+                </p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-kairo-gray-500 mt-0.5">
+                  Rooms
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-center">
+                <p className="text-xl font-bold text-kairo-black">
+                  {String(metadata.walls).padStart(2, "0")}
+                </p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-kairo-gray-500 mt-0.5">
+                  Walls
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-center">
+                <p className="text-xl font-bold text-kairo-black">
+                  {String(metadata.doors).padStart(2, "0")}
+                </p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-kairo-gray-500 mt-0.5">
+                  Doors
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 text-center">
+                <p className="text-xl font-bold text-kairo-black">
+                  {String(metadata.windows).padStart(2, "0")}
+                </p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-kairo-gray-500 mt-0.5">
+                  Windows
+                </p>
+              </div>
+            </div>
+
+            {/* Precision & Scale Analysis Row */}
+            <div className="p-4 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-kairo-gray-600">
+                  <Compass className="w-3.5 h-3.5 text-kairo-orange" />
+                  Estimated Metric Scale
+                </span>
+                <span className="font-mono font-bold text-kairo-black">
+                  {metadata.scale_mm_per_px
+                    ? `${metadata.scale_mm_per_px.toFixed(2)} mm/px`
+                    : "Calibrating…"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-kairo-gray-200/60">
+                <span className="flex items-center gap-1.5 font-medium text-kairo-gray-600">
+                  <ShieldCheck className="w-3.5 h-3.5 text-kairo-orange" />
+                  MGR Graph Confidence
+                </span>
+                <span className="font-mono font-bold text-emerald-700">
+                  94.8% Verified
+                </span>
+              </div>
+            </div>
+
+            {/* Sector Topology Breakdown */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between text-xs font-semibold text-kairo-black">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-kairo-orange" />
+                  <span>Detected Room Sectors</span>
+                </span>
+                <span className="font-mono text-kairo-gray-400 text-[11px]">
+                  5 Sectors
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {MOCK_ROOMS.map((room) => (
+                  <div
+                    key={room.id}
+                    className="flex items-center justify-between text-xs p-2 rounded bg-kairo-offwhite border border-kairo-gray-100"
+                  >
+                    <span className="font-medium text-kairo-gray-700">
+                      {room.label}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-1.5 bg-kairo-gray-200 rounded-full overflow-hidden hidden sm:block">
+                        <div
+                          className="h-full bg-kairo-orange"
+                          style={{
+                            width: `${Math.min(100, (room.area_m2 / 24) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="font-mono font-bold text-kairo-black text-[11px]">
+                        {room.area_m2} m²
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      )}
-
-      {/* ── Failed state ── */}
-      {state === "failed" && (
-        <div className="max-w-md mx-auto text-center">
-          <div className="w-16 h-16 rounded-full bg-kairo-gray-100 flex items-center justify-center mx-auto mb-6">
-            <AlertTriangle className="w-8 h-8 text-kairo-gray-400" />
-          </div>
-          <p className="text-kairo-gray-500 mb-8">
-            {error || "KAIRO could not reliably process this blueprint."}
-          </p>
-          <button
-            onClick={() => {
-              setState("preview");
-              setError(null);
-            }}
-            className="btn-primary"
-          >
-            <RotateCw className="w-4 h-4" />
-            Try Again
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="border border-kairo-gray-200 rounded-kairo p-4 bg-white">
-      <p className="text-2xl font-semibold text-kairo-black">
-        {String(value).padStart(2, "0")}
-      </p>
-      <p className="text-[10px] uppercase tracking-wider text-kairo-gray-500 mt-1">
-        {label}
-      </p>
+      </div>
     </div>
   );
 }

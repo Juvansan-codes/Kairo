@@ -11,8 +11,6 @@ import {
   LogOut,
   Menu,
   X,
-  Cpu,
-  Home,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
@@ -164,25 +162,6 @@ export function Sidebar() {
               })}
             </nav>
           </div>
-
-          {/* Engine Status Callout Card */}
-          <div className="px-3">
-            <div className="p-3.5 rounded-kairo bg-kairo-offwhite border border-kairo-gray-200 space-y-2.5">
-              <div className="flex items-center justify-between text-[11px] font-mono text-kairo-gray-700">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Cpu className="w-3.5 h-3.5 text-kairo-orange" />
-                  MGR Engine
-                </span>
-                <span className="flex items-center gap-1 text-[10px] text-emerald-600">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  ONLINE
-                </span>
-              </div>
-              <p className="text-[10px] text-kairo-gray-500 leading-relaxed">
-                Metric Geometric Reconciliation fuser calibrated for 25.4 mm/px floor plans.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* User Footer / Account Actions */}
@@ -210,25 +189,15 @@ export function Sidebar() {
             </div>
           </div>
 
-          {/* Bottom links */}
-          <div className="flex items-center justify-between text-xs pt-1 px-1 text-kairo-gray-500">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1 text-[11px] text-kairo-gray-500 hover:text-kairo-black transition-colors"
-            >
-              <Home className="w-3.5 h-3.5" />
-              <span>Landing</span>
-            </Link>
-
-            <button
-              onClick={() => signOut()}
-              className="inline-flex items-center gap-1 text-[11px] text-kairo-gray-500 hover:text-red-600 transition-colors"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
-          </div>
+          {/* Sign out action */}
+          <button
+            onClick={() => signOut()}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-kairo border border-kairo-gray-200 text-xs font-medium text-kairo-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50/30 transition-all"
+            title="Sign Out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
     </>

@@ -49,9 +49,9 @@ export function BlueprintUploader({ onFileSelect, disabled }: BlueprintUploaderP
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       className={`
-        relative border-2 border-dashed rounded-kairo p-12 lg:p-16
+        relative border-2 border-dashed rounded-kairo p-8 lg:p-10
         flex flex-col items-center justify-center text-center
-        transition-all duration-300 cursor-pointer min-h-[320px]
+        transition-all duration-300 cursor-pointer min-h-[260px]
         ${isDragging
           ? "border-kairo-orange bg-kairo-orange-light"
           : "border-kairo-gray-200 hover:border-kairo-gray-400 bg-white"

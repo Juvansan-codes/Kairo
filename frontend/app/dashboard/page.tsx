@@ -17,6 +17,8 @@ import {
   RefreshCw,
   ShieldCheck,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import type { Reconstruction } from "@/lib/types";
@@ -84,45 +86,245 @@ export default function DashboardPage() {
     };
   }, [items]);
 
+  // Dynamic Architectural Backdrops
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const slides = useMemo(
+    () => [
+      {
+        title: "Orthographic CAD Perception",
+        tag: "LAYER 01 · 2D VECTOR",
+        desc: "Sub-millimeter wall thickness & aperture extraction",
+      },
+      {
+        title: "Isometric 3D Spatial Mesh",
+        tag: "LAYER 02 · 3D GEOMETRY",
+        desc: "Watertight volumetric mesh with collision-ready topology",
+      },
+      {
+        title: "Metric Reconciliation Graph",
+        tag: "LAYER 03 · MGR FUSION",
+        desc: "Multi-evidence topological constraints & OCR scale calibration",
+      },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8 animate-fade-in">
-      {/* ── Top Header Banner ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-kairo-gray-200">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-[10px] font-mono uppercase tracking-widest text-kairo-gray-500">
-              KAIRO SPATIAL INTELLIGENCE · ACTIVE SESSION
-            </p>
+      {/* ── Top Header Banner with Architectural Slider Backdrop ── */}
+      <div className="relative rounded-kairo overflow-hidden bg-kairo-black text-white border border-kairo-gray-800 shadow-xl">
+        {/* Dynamic Slider Backdrops */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Slide 0: 2D Orthographic CAD Blueprint */}
+          <div
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              activeSlide === 0 ? "opacity-35" : "opacity-0"
+            }`}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(241,90,36,0.12) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(241,90,36,0.12) 1px, transparent 1px)
+                `,
+                backgroundSize: "32px 32px",
+              }}
+            />
+            {/* Architectural CAD Vector SVG */}
+            <svg
+              className="absolute right-0 top-0 h-full w-2/3 object-cover opacity-60"
+              viewBox="0 0 600 240"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect x="50" y="30" width="500" height="180" stroke="#F15A24" strokeWidth="1.5" />
+              <line x1="220" y1="30" x2="220" y2="210" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="380" y1="30" x2="380" y2="130" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="220" y1="130" x2="550" y2="130" stroke="#F15A24" strokeWidth="1.2" />
+              <path d="M 220 70 A 25 25 0 0 1 245 95" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="3 2" />
+              <path d="M 380 170 A 25 25 0 0 0 405 195" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="3 2" />
+              <circle cx="50" cy="30" r="4" fill="#F15A24" />
+              <circle cx="550" cy="30" r="4" fill="#F15A24" />
+              <circle cx="550" cy="210" r="4" fill="#F15A24" />
+              <circle cx="50" cy="210" r="4" fill="#F15A24" />
+              <text x="120" y="125" fill="#888888" fontSize="10" fontFamily="monospace">SECTOR A: 48.2m²</text>
+              <text x="290" y="85" fill="#888888" fontSize="10" fontFamily="monospace">SECTOR B: 24.0m²</text>
+              <text x="440" y="85" fill="#888888" fontSize="10" fontFamily="monospace">SECTOR C: 16.5m²</text>
+            </svg>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-kairo-black">
-            Welcome back, <span className="text-kairo-orange">{userName}</span>
-          </h1>
-          <p className="text-xs text-kairo-gray-500 mt-1 max-w-xl leading-relaxed">
-            Metric-Aware geometric reconciliation pipeline overview. Manage floor plans,
-            inspect spatial topology, and export interactive GLB scenes.
-          </p>
+
+          {/* Slide 1: Isometric 3D Wireframe */}
+          <div
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              activeSlide === 1 ? "opacity-35" : "opacity-0"
+            }`}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(100,181,246,0.12) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(100,181,246,0.12) 1px, transparent 1px)
+                `,
+                backgroundSize: "28px 28px",
+              }}
+            />
+            {/* Isometric 3D Geometry SVG */}
+            <svg
+              className="absolute right-0 top-0 h-full w-2/3 object-cover opacity-60"
+              viewBox="0 0 600 240"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <polygon points="300,30 480,90 300,150 120,90" stroke="#64B5F6" strokeWidth="1.5" />
+              <polygon points="300,90 480,150 300,210 120,150" stroke="#64B5F6" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="120" y1="90" x2="120" y2="150" stroke="#64B5F6" strokeWidth="1.5" />
+              <line x1="480" y1="90" x2="480" y2="150" stroke="#64B5F6" strokeWidth="1.5" />
+              <line x1="300" y1="30" x2="300" y2="90" stroke="#F15A24" strokeWidth="1.5" />
+              <line x1="300" y1="150" x2="300" y2="210" stroke="#F15A24" strokeWidth="1.5" />
+              <circle cx="300" cy="30" r="4" fill="#F15A24" />
+              <circle cx="480" cy="90" r="4" fill="#F15A24" />
+              <circle cx="300" cy="150" r="4" fill="#F15A24" />
+              <circle cx="120" cy="90" r="4" fill="#F15A24" />
+              <text x="310" y="55" fill="#64B5F6" fontSize="10" fontFamily="monospace">Z: +2.80m [ELEVATION]</text>
+              <text x="390" y="130" fill="#aaaaaa" fontSize="9" fontFamily="monospace">VOLUMETRIC EXTENSION</text>
+            </svg>
+          </div>
+
+          {/* Slide 2: Metric Reconciliation Graph */}
+          <div
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              activeSlide === 2 ? "opacity-35" : "opacity-0"
+            }`}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `
+                  radial-gradient(rgba(241,90,36,0.15) 1px, transparent 1px)
+                `,
+                backgroundSize: "24px 24px",
+              }}
+            />
+            {/* Graph Network SVG */}
+            <svg
+              className="absolute right-0 top-0 h-full w-2/3 object-cover opacity-60"
+              viewBox="0 0 600 240"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <line x1="180" y1="70" x2="290" y2="140" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="290" y1="140" x2="420" y2="60" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="290" y1="140" x2="390" y2="180" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="420" y1="60" x2="520" y2="120" stroke="#F15A24" strokeWidth="1.2" />
+              <line x1="390" y1="180" x2="520" y2="120" stroke="#F15A24" strokeWidth="1.2" />
+              <circle cx="180" cy="70" r="6" fill="#F15A24" />
+              <circle cx="290" cy="140" r="8" fill="#F15A24" />
+              <circle cx="420" cy="60" r="6" fill="#F15A24" />
+              <circle cx="390" cy="180" r="7" fill="#F15A24" />
+              <circle cx="520" cy="120" r="6" fill="#F15A24" />
+              <text x="210" y="110" fill="#F15A24" fontSize="9" fontFamily="monospace">EDGE: 0.982</text>
+              <text x="350" y="90" fill="#F15A24" fontSize="9" fontFamily="monospace">EDGE: 0.994</text>
+              <text x="310" y="165" fill="#F15A24" fontSize="9" fontFamily="monospace">SCALE: 19.82mm</text>
+            </svg>
+          </div>
+
+          {/* Dark gradient fade for high text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-r from-kairo-black via-kairo-black/90 to-kairo-black/40" />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => loadData()}
-            disabled={loading}
-            className="p-2.5 rounded-kairo border border-kairo-gray-200 text-kairo-gray-500 hover:text-kairo-black hover:bg-white transition-all"
-            title="Refresh data"
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${loading ? "animate-spin text-kairo-orange" : ""}`}
-            />
-          </button>
+        {/* Foreground Content */}
+        <div className="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col justify-between min-h-[220px]">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight">
+                Welcome back, <span className="text-kairo-orange">{userName}</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-kairo-gray-300 leading-relaxed max-w-xl">
+                Metric-Aware geometric reconciliation pipeline overview. Manage floor plans,
+                inspect spatial topology, and export interactive GLB scenes.
+              </p>
+            </div>
 
-          <Link
-            href="/workspace"
-            className="btn-primary text-xs py-2.5 px-4 font-semibold uppercase tracking-wider inline-flex items-center gap-2 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Reconstruction</span>
-          </Link>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => loadData()}
+                disabled={loading}
+                className="p-3 rounded-kairo border border-kairo-gray-700 bg-kairo-black/60 text-kairo-gray-300 hover:text-white hover:border-kairo-gray-500 transition-all backdrop-blur-md"
+                title="Refresh data"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin text-kairo-orange" : ""}`}
+                />
+              </button>
+
+              <Link
+                href="/workspace"
+                className="btn-primary text-xs py-3 px-5 font-semibold uppercase tracking-wider inline-flex items-center gap-2 shadow-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Reconstruction</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Bottom Slider Indicators & Controls */}
+          <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[10px] font-mono text-kairo-gray-400">
+              <span className="text-kairo-orange font-bold">
+                {slides[activeSlide].tag}
+              </span>
+              <span className="text-kairo-gray-600">·</span>
+              <span className="hidden sm:inline text-kairo-gray-300">
+                {slides[activeSlide].title}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveSlide(idx)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    activeSlide === idx
+                      ? "w-6 bg-kairo-orange"
+                      : "w-2 bg-kairo-gray-700 hover:bg-kairo-gray-500"
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+
+              <div className="flex items-center gap-1 ml-3 pl-3 border-l border-white/10">
+                <button
+                  onClick={() =>
+                    setActiveSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1))
+                  }
+                  className="p-1 rounded text-kairo-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Previous backdrop slide"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() =>
+                    setActiveSlide((prev) => (prev + 1) % slides.length)
+                  }
+                  className="p-1 rounded text-kairo-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Next backdrop slide"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
