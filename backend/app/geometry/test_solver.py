@@ -6,15 +6,18 @@ All masks are generated programmatically; no external files required.
 
 from __future__ import annotations
 
+import math
 import numpy as np
 import pytest
 
 from app.geometry.solver import (
     skeletonization,
+    extract_wall_segments,
     _validate_mask,
     _normalize_mask,
     _cleanup_wall_mask,
 )
+from app.geometry.types import WallSegment
 
 
 # ---------------------------------------------------------------------------
@@ -298,3 +301,204 @@ class TestInvalidInput:
         mask[50:60, 100:400] = True
         skel = skeletonization(mask)
         assert skel.shape == (123, 456)
+
+
+# ===================================================================
+# Phase 3 Tests: extract_wall_segments
+# ===================================================================
+
+class TestExtractHorizontalSkeleton:
+    """Horizontal skeleton line should produce 1 wall segment."""
+
+    def test_horizontal_segment_extraction(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[50, 20:80] = True  # columns 20 to 79 (length 59 px)
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) == 1
+        seg = segs[0]
+        assert isinstance(seg, WallSegment)
+        assert abs(seg.length_px - 59.0) <= 1.0
+        # Horizontal angles are approximately 0° or ±180°
+        assert abs(seg.angle_deg) <= 1.0 or abs(abs(seg.angle_deg) - 180.0) <= 1.0
+        # Endpoints should align with row 50
+        assert abs(seg.start[1] - 50.0) <= 1.0
+        assert abs(seg.end[1] - 50.0) <= 1.0
+        # X-coordinates should span approx 20 to 79
+        x_coords = sorted([seg.start[0], seg.end[0]])
+        assert abs(x_coords[0] - 20.0) <= 1.0
+        assert abs(x_coords[1] - 79.0) <= 1.0
+
+
+class TestExtractVerticalSkeleton:
+    """Vertical skeleton line should produce 1 wall segment."""
+
+    def test_vertical_segment_extraction(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[20:80, 50] = True  # rows 20 to 79 (length 59 px)
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) == 1
+        seg = segs[0]
+        assert isinstance(seg, WallSegment)
+        assert abs(seg.length_px - 59.0) <= 1.0
+        # Vertical angle should be approximately 90° or -90°
+        assert abs(abs(seg.angle_deg) - 90.0) <= 1.0
+        # Endpoints should align with col 50
+        assert abs(seg.start[0] - 50.0) <= 1.0
+        assert abs(seg.end[0] - 50.0) <= 1.0
+        # Y-coordinates should span approx 20 to 79
+        y_coords = sorted([seg.start[1], seg.end[1]])
+        assert abs(y_coords[0] - 20.0) <= 1.0
+        assert abs(y_coords[1] - 79.0) <= 1.0
+
+
+class TestExtractDiagonalSkeleton:
+    """Diagonal skeleton line should produce 1 segment matching diagonal direction."""
+
+    def test_diagonal_segment_extraction(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        for i in range(20, 80):
+            skel[i, i] = True
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) == 1
+        seg = segs[0]
+        expected_len = math.hypot(59, 59)
+        assert abs(seg.length_px - expected_len) <= 3.0
+        # Diagonal direction should be approximately 45° or -135°
+        assert abs(seg.angle_deg - 45.0) <= 2.0 or abs(seg.angle_deg - (-135.0)) <= 2.0
+
+
+class TestExtractLShapedSkeleton:
+    """L-shaped skeleton should produce multiple segments and handle the corner."""
+
+    def test_l_shaped_segments(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[50, 20:61] = True  # horizontal: col 20..60 (length 40)
+        skel[50:91, 60] = True  # vertical: row 50..90 (length 40)
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) >= 2
+        angles = [s.angle_deg for s in segs]
+        has_horizontal = any(abs(a) <= 5.0 or abs(abs(a) - 180.0) <= 5.0 for a in angles)
+        has_vertical = any(abs(abs(a) - 90.0) <= 5.0 for a in angles)
+        assert has_horizontal, "Expected at least one horizontal segment in L-shape"
+        assert has_vertical, "Expected at least one vertical segment in L-shape"
+
+
+class TestExtractTShapedSkeleton:
+    """T-shaped skeleton should produce 3 segments meeting at the junction."""
+
+    def test_t_shaped_segments(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[50, 20:80] = True  # horizontal bar: col 20..79
+        skel[50:90, 50] = True  # vertical stem: row 50..89
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) == 3
+        angles = [s.angle_deg for s in segs]
+        horiz_count = sum(1 for a in angles if abs(a) <= 5.0 or abs(abs(a) - 180.0) <= 5.0)
+        vert_count = sum(1 for a in angles if abs(abs(a) - 90.0) <= 5.0)
+        assert horiz_count == 2, f"Expected 2 horizontal branches, got {horiz_count}"
+        assert vert_count == 1, f"Expected 1 vertical branch, got {vert_count}"
+
+
+class TestExtractNoiseSkeleton:
+    """Isolated single pixels and short noise should not produce segments."""
+
+    def test_isolated_pixels_ignored(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[10, 10] = True
+        skel[20, 20] = True
+        skel[30:32, 30:32] = True  # 2x2 clump
+
+        segs = extract_wall_segments(skel)
+        assert len(segs) == 0
+
+    def test_empty_skeleton_returns_empty_list(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        assert extract_wall_segments(skel) == []
+
+
+class TestExtractEncodingInputs:
+    """Functions should accept boolean, 0/1 integer, and 0/255 arrays."""
+
+    def test_boolean_skeleton_input(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[50, 20:80] = True
+        segs = extract_wall_segments(skel)
+        assert len(segs) == 1
+        assert isinstance(segs[0], WallSegment)
+
+    def test_uint8_skeleton_input(self):
+        skel = np.zeros((100, 100), dtype=np.uint8)
+        skel[50, 20:80] = 255
+        segs = extract_wall_segments(skel)
+        assert len(segs) == 1
+        assert isinstance(segs[0], WallSegment)
+
+    def test_int_01_skeleton_input(self):
+        skel = np.zeros((100, 100), dtype=np.int32)
+        skel[50, 20:80] = 1
+        segs = extract_wall_segments(skel)
+        assert len(segs) == 1
+        assert isinstance(segs[0], WallSegment)
+
+
+class TestExtractInvalidInput:
+    """Invalid inputs to extract_wall_segments must raise clear exceptions."""
+
+    def test_non_array_raises_typeerror(self):
+        with pytest.raises(TypeError, match="numpy ndarray"):
+            extract_wall_segments([[1, 0], [0, 1]])
+
+    def test_3d_array_raises_valueerror(self):
+        with pytest.raises(ValueError, match="2-D"):
+            extract_wall_segments(np.zeros((10, 10, 3)))
+
+    def test_1d_array_raises_valueerror(self):
+        with pytest.raises(ValueError, match="2-D"):
+            extract_wall_segments(np.zeros((100,)))
+
+    def test_empty_array_raises_valueerror(self):
+        with pytest.raises(ValueError, match="empty"):
+            extract_wall_segments(np.zeros((0, 0), dtype=bool))
+
+
+class TestExtractClosedLoopSkeleton:
+    """Closed loop skeletons should terminate cleanly and produce wall segments."""
+
+    def test_rectangular_closed_loop(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[30:70, 30] = True
+        skel[30:70, 70] = True
+        skel[30, 30:71] = True
+        skel[70, 30:71] = True
+
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) >= 2
+        for s in segs:
+            assert isinstance(s, WallSegment)
+            assert s.length_px >= 3.0
+
+
+class TestWallSegmentProperties:
+    """Verify WallSegment attributes, source, and confidence scores."""
+
+    def test_confidence_and_source(self):
+        skel = np.zeros((100, 100), dtype=bool)
+        skel[50, 20:80] = True
+        segs = extract_wall_segments(skel)
+
+        assert len(segs) == 1
+        seg = segs[0]
+        assert seg.source == ["skeleton"]
+        assert 0.0 < seg.confidence <= 1.0
+        assert seg.id.startswith("wall_")
