@@ -1,27 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FFFFFF;
+  --foreground: #0A0A0A;
+  --kairo-orange: #F15A24;
+  --kairo-black: #0A0A0A;
+  --kairo-offwhite: #F7F7F5;
+  --border-color: #E5E5E5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Selection */
+::selection {
+  background: rgba(241, 90, 36, 0.15);
+  color: #0A0A0A;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4D4D4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A3A3A3;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--kairo-orange);
+  outline-offset: 2px;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@layer components {
+  /* Primary CTA - Orange */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-kairo-orange text-white font-medium text-sm rounded-kairo transition-all duration-200;
+  }
+  .btn-primary:hover {
+    @apply bg-kairo-orange-hover;
+  }
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Secondary CTA - Black */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-kairo-black text-white font-medium text-sm rounded-kairo transition-all duration-200;
+  }
+  .btn-secondary:hover {
+    @apply bg-kairo-gray-900;
+  }
+
+  /* Outline button */
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-transparent text-kairo-black font-medium text-sm rounded-kairo border border-kairo-gray-200 transition-all duration-200;
+  }
+  .btn-outline:hover {
+    @apply border-kairo-gray-400;
+  }
+
+  /* Micro label */
+  .micro-label {
+    @apply text-micro uppercase tracking-widest text-kairo-gray-500;
   }
 }
