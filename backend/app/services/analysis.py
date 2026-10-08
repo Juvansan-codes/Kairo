@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
-from backend.app.perception.adapter import ResNetUNetPerception
-from backend.app.ocr.engine import PaddleOCREngine
-from backend.app.dimensions.parser import parse_dimensions
-from backend.app.scale.service import associate_dimensions
-from backend.app.dimensions.vlm import DimensionVerifier
+from app.perception.adapter import ResNetUNetPerception
+from app.ocr.engine import PaddleOCREngine
+from app.dimensions.parser import parse_dimensions
+from app.scale.service import associate_dimensions
+from app.dimensions.vlm import DimensionVerifier
 
 class PerceptionAnalysisService:
     def __init__(self):

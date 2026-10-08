@@ -55,8 +55,8 @@ def main():
     parser.add_argument("--dataset", required=True, help="Dataset name, e.g. custom_v1")
     args = parser.parse_args()
     
-    base_dir = Path(__file__).parent / "ground_truth"
-    dataset_dir = base_dir / args.dataset.replace("_v1", "") # simplistic mapping
+    base_dir = Path(__file__).parent
+    dataset_dir = base_dir / "datasets" / args.dataset
     
     if not dataset_dir.exists():
         print(f"Dataset directory not found: {dataset_dir}")
@@ -79,7 +79,7 @@ def main():
             print(f"  [PENDING] {sample_id} - Skipping validation")
             continue
             
-        gt_path = dataset_dir.parent.parent / s.get("ground_truth", "")
+        gt_path = base_dir.parent / s.get("ground_truth", "")
         if not gt_path.exists():
             print(f"  [FAIL] {sample_id}: Ground truth file missing at {gt_path}")
             all_valid = False

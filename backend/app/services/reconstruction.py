@@ -30,16 +30,58 @@ class ReconstructionService:
             analysis_service = ReconstructionService.get_analysis_service()
             analysis_result = analysis_service.analyze(job.file_path, job)
             
-            # 2. Geometry (Member 2 stub)
+            # 2. Geometry (Member 2 Real MGR)
             job.stage = "GEOMETRY"
-            geometry_result = ReconstructionService._geometry_service.reconstruct(analysis_result)
+            from .geometry import MockGeometryService
+            from app.geometry.adapter import adapt_analysis_to_mgr
+            from app.geometry.pipeline import run_mgr_pipeline
             
-            # 3. Scene Generation (Member 2/4 stub)
+            # Adapt Member 1 output to Member 2 inputs
+            geometry_inputs = adapt_analysis_to_mgr(analysis_result)
+            
+            # Execute real MGR pipeline
+            mgr_result = run_mgr_pipeline(**geometry_inputs)
+            
+            # Serialize for downstream (and metadata)
+            serialized_metadata = {
+                "rooms": len(mgr_result.rooms),
+                "walls": len(mgr_result.walls),
+                "doors": len(mgr_result.doors),
+                "windows": len(mgr_result.windows),
+                "scale_mm_per_px": mgr_result.scale_mm_per_px,
+                "confidence": mgr_result.confidence,
+                "topology_valid": mgr_result.confidence.get("topology_valid", False),
+                "geometry_status": "completed",
+                "scene_generation_status": "pending"
+            }
+            
+            # Store the structured geometry result in job metadata
+            analysis_result["metadata"]["geometry_status"] = "completed"
+            
+            geometry_result = {
+                "metadata": serialized_metadata,
+                "mgr_result": mgr_result  # Keep raw dataclasses for GLB generator
+            }
+            
+            # 3. Scene Generation (Real Trimesh generation)
             job.stage = "3D_GENERATION"
-            glb_path = ReconstructionService._scene_service.generate(job_id, geometry_result)
+            from app.reconstruction.generator import generate_scene
+            import os
+            
+            # Setup output path
+            RESULT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "results")
+            os.makedirs(RESULT_DIR, exist_ok=True)
+            glb_path = os.path.join(RESULT_DIR, f"{job_id}.glb")
+            
+            # Generate valid GLB
+            gen_stats = generate_scene(mgr_result, glb_path)
+            
+            # Update metadata with generator stats
+            serialized_metadata.update(gen_stats)
+            serialized_metadata["scene_generation_status"] = "completed"
             
             # Save final structured metadata and model
-            JobManager.save_result(job_id, geometry_result.get("metadata", {}), glb_path)
+            JobManager.save_result(job_id, serialized_metadata, glb_path)
             
         except Exception as e:
             job.status = "failed"

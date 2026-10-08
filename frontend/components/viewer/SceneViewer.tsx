@@ -48,17 +48,34 @@ interface ModelProps {
   layers: SceneLayer[];
   onObjectClick?: (name: string) => void;
   onLoaded?: () => void;
+  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number }) => void;
 }
 
-function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded }: ModelProps) {
+function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded, onBoundsComputed }: ModelProps) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
 
   useEffect(() => {
-    if (scene) {
+    if (scene && groupRef.current) {
+      const box = new THREE.Box3().setFromObject(groupRef.current);
+      if (!box.isEmpty() && onBoundsComputed) {
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const effectiveDim = maxDim < 0.1 ? 10 : maxDim;
+        const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
+        // Compute distance needed to fit the model within the FOV, add 50% margin
+        const distance = Math.abs(effectiveDim / 2 / Math.tan(fov / 2)) * 1.5;
+        // Clamp distance to avoid extreme values
+        const safeDistance = Math.min(Math.max(distance, 5), 10000);
+        onBoundsComputed({ center, distance: safeDistance });
+      }
       onLoaded?.();
     }
-  }, [scene, onLoaded]);
+  }, [scene, camera, onLoaded, onBoundsComputed]);
 
   // Apply layer visibility
   useEffect(() => {
@@ -83,20 +100,27 @@ function RemoteGLTFModel({ url, layers, onObjectClick, onLoaded }: ModelProps) {
   );
 
   return (
-    <Center>
-      <primitive ref={groupRef} object={scene} onClick={handleClick} />
-    </Center>
+    <group ref={groupRef}>
+      <primitive object={scene} onClick={handleClick} />
+    </group>
   );
 }
 
-// ── Interactive Architectural Floor Plan Model (Parametric Metric Reconstruction) ──
+// ── Interactive Architectural Model (Parametric Metric Reconstruction) ──
 
 interface ArchitecturalModelProps {
   layers: SceneLayer[];
   onObjectClick?: (name: string) => void;
+  onBoundsComputed?: (bounds: { center: THREE.Vector3; distance: number }) => void;
 }
 
-function ArchitecturalModel({ layers, onObjectClick }: ArchitecturalModelProps) {
+function ArchitecturalModel({ layers, onObjectClick, onBoundsComputed }: ArchitecturalModelProps) {
+  useEffect(() => {
+    if (onBoundsComputed) {
+      onBoundsComputed({ center: new THREE.Vector3(0, 1.4, 0), distance: 16 });
+    }
+  }, [onBoundsComputed]);
+
   const isLayerVisible = (prefix: string) => {
     const layer = layers.find((l) => l.prefix.toLowerCase() === prefix.toLowerCase());
     return layer ? layer.visible : true;
@@ -364,26 +388,49 @@ function ArchitecturalModel({ layers, onObjectClick }: ArchitecturalModelProps) 
 
 interface CameraSetterProps {
   preset: "default" | "top" | "front" | "side" | null;
+  bounds: { center: THREE.Vector3; distance: number } | null;
   onDone: () => void;
 }
 
-function CameraSetter({ preset, onDone }: CameraSetterProps) {
-  const { camera } = useThree();
+function CameraSetter({ preset, bounds, onDone }: CameraSetterProps) {
+  const { camera, controls } = useThree();
 
   useEffect(() => {
     if (!preset) return;
-    const positions: Record<string, [number, number, number]> = {
-      default: [9, 9, 9],
-      top: [0, 16, 0.01],
-      front: [0, 4, 12],
-      side: [12, 4, 0],
-    };
-    const pos = positions[preset] || positions.default;
-    camera.position.set(...pos);
-    camera.lookAt(0, 0, 0);
+    
+    let center = new THREE.Vector3(0, 0, 0);
+    let distance = 16;
+
+    if (bounds) {
+      center = bounds.center;
+      distance = bounds.distance;
+    }
+
+    const offset = new THREE.Vector3();
+    if (preset === "default") {
+      offset.set(distance * 0.7, distance * 0.7, distance * 0.7);
+    } else if (preset === "top") {
+      offset.set(0, distance, 0.01); // small z to avoid gimble lock
+    } else if (preset === "front") {
+      offset.set(0, distance * 0.3, distance);
+    } else if (preset === "side") {
+      offset.set(distance, distance * 0.3, 0);
+    }
+
+    const newPos = center.clone().add(offset);
+    camera.position.copy(newPos);
+    camera.lookAt(center);
     camera.updateProjectionMatrix();
+
+    if (controls) {
+      // @ts-ignore
+      controls.target.copy(center);
+      // @ts-ignore
+      controls.update();
+    }
+
     onDone();
-  }, [preset, camera, onDone]);
+  }, [preset, camera, controls, bounds, onDone]);
 
   return null;
 }
@@ -420,9 +467,16 @@ export function SceneViewer({
 }: SceneViewerProps) {
   const [loading, setLoading] = useState(true);
   const [cameraPreset, setCameraPreset] = useState<"default" | "top" | "front" | "side" | null>(null);
+  const [modelBounds, setModelBounds] = useState<{ center: THREE.Vector3; distance: number } | null>(null);
 
   const handleLoaded = useCallback(() => {
     setLoading(false);
+    setCameraPreset("default");
+  }, []);
+
+  const handleBoundsComputed = useCallback((bounds: { center: THREE.Vector3; distance: number }) => {
+    setModelBounds(bounds);
+    setCameraPreset("default");
   }, []);
 
   return (
@@ -472,9 +526,10 @@ export function SceneViewer({
                 layers={layers}
                 onObjectClick={onObjectClick}
                 onLoaded={handleLoaded}
+                onBoundsComputed={handleBoundsComputed}
               />
             ) : (
-              <ArchitecturalModel layers={layers} onObjectClick={onObjectClick} />
+              <ArchitecturalModel layers={layers} onObjectClick={onObjectClick} onBoundsComputed={handleBoundsComputed} />
             )}
           </ModelErrorBoundary>
 
@@ -489,7 +544,7 @@ export function SceneViewer({
 
         <OrbitControls makeDefault enableDamping />
 
-        <CameraSetter preset={cameraPreset} onDone={() => setCameraPreset(null)} />
+        <CameraSetter preset={cameraPreset} bounds={modelBounds} onDone={() => setCameraPreset(null)} />
 
         {/* Blueprint Ground Reference Grid */}
         <gridHelper args={[24, 48, "#F15A24", "#1e1e1e"]} />

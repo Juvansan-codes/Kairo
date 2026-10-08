@@ -1,43 +1,111 @@
-# PHASE 5 REPORT: Dimension ↔ Geometry Association & Scale Estimation
+# Research Phase 5: Human Annotation Workspace
 
-## Overview
-Phase 5 successfully implemented the **Dimension ↔ Geometry Association** and robust **Scale Estimation** subsystem. This module consumes the metric outputs from the Dimension Parser (Phase 4) and the semantic segmentation masks from the Perception adapter (Phase 2), combining them to calculate a global standard metric scale without stepping on the final topological reconstruction responsibilities.
+## A. Annotation Workspace
 
-## Architecture
-1. **Geometry Candidate Extraction (`geometry.py`)**:
-   Instead of performing a full heavy graph topological trace, this module isolates `cv2.findContours` into minimal enclosing rectangles (`minAreaRect`) around semantic wall masks. These represent lightweight geometric references in the original coordinate space.
-2. **Dimension Association (`association.py`)**:
-   Dimension candidates are mapped to the geometric candidates using evidence-based scoring:
-   - **Spatial Proximity:** How close the OCR text box center is to the geometry candidate.
-   - **Orientation Match:** Whether a strictly vertical/horizontal dimension aligns strictly with vertical/horizontal geometry structures within a generous angular tolerance ($15^\circ$).
-3. **Consensus Algorithm (`consensus.py`)**:
-   - Collects multiple $S_{candidate} = \frac{dimension\_value_{mm}}{pixel\_length}$ ratios.
-   - Uses robust statistics (**Median + Median Absolute Deviation**) to reject extreme outliers.
-   - Averages the remaining inliers to create a highly accurate `scale_mm_per_px`.
-4. **Scale Service Orchestration (`service.py`)**:
-   Provides `associate_dimensions(perception_result, dimension_result)` returning a `ScaleEstimationResult`.
+Exact files created/changed:
+- Created: `evaluation/annotation/index.html` (Standalone Zero-Dependency UI Workspace)
 
-## Fallback Hierarchy
-The current system implements the foundational metric layer:
-1. **`multiple_agreeing_dimensions`**: Used when robust consensus isolates $\ge 2$ agreeing explicit dimensions.
-2. **`single_dimension`**: Falls back to the raw ratio if only 1 valid explicit dimension exists.
-3. **`unavailable`**: Triggered when no metric dimensions exist. (Prior-based assumptions like `door_prior` and `wall_thickness_prior` will logically hook into this state if geometric doors/windows are eventually submitted).
+The workspace is a plain HTML/JS application built entirely on standard browser APIs. It imposes zero complex framework dependencies and requires no server-side processing for drawing or exporting, perfectly preserving benchmark independence.
 
-## Testing
-Tests were executed using `backend/test_scale.py`:
-- **Consensus & Outliers**: Verified mathematically. A mock list containing 3 close scales ($\sim 20 \text{mm/px}$) and 1 massive outlier ($40 \text{mm/px}$) perfectly converged on $19.93 \text{mm/px}$, cleanly isolating the error and printing residual errors.
-- **Real Floorplans (`F1`, `F2`, `F3`)**: 
-  - Since `F1`, `F2`, and `F3` lack explicit numeric dimensions, the system correctly processed them without hallucinating data, resolving to `scale_mm_per_px = None` and `source = "unavailable"`.
-  - A strictly structured mock dimension (`3500mm` near `[100, 100]`) was manually injected to test geometric association against the real perception masks of `F1`, `F2`, and `F3`. The system perfectly mapped the mock text to an underlying extracted wall polygon, resulting in valid test scales (e.g., $112.00 \text{mm/px}$).
+## B. Launch Instructions
 
-## Known Limitations
-* **Chained Dimension Complexity:** Parsing multi-target "chained" numbers (e.g., $1200\ 2500\ 1800$) will require geometric extension line analysis (tracing the perpendicular extension lines from the text to the wall graph boundaries). Currently, only standard single-target explicit dimensions fully succeed.
-* **Complex Angular Skew:** The $15^\circ$ alignment tolerance works for slightly skewed scanned documents, but arbitrarily diagonal architectural grids might miss spatial orientation checks.
+To use the annotation tool, serve the repository locally to bypass browser CORS restrictions for local imagery:
 
-## Handoff to Member 2
-Phase 5 is complete. I have intentionally avoided generating architectural topology, snapping coordinates, or merging room boundaries. 
-Member 2's geometric reconstruction module can now safely consume the output from `associate_dimensions()`:
-- `ScaleEstimationResult.scale_mm_per_px` (The primary global metric ratio)
-- `ScaleEstimationResult.associations` (A list of `DimensionAssociation` objects proving exactly which dimensions matched which pixel-lengths, allowing Member 2 to selectively prioritize locking those specific pixel walls).
+```bash
+cd "d:\College Files\Kairo"
+python -m http.server 8000
+```
+Then open in any modern browser:
+[http://localhost:8000/evaluation/annotation/index.html](http://localhost:8000/evaluation/annotation/index.html)
 
-**PHASE 5 IS COMPLETE.**
+## C. Supported Annotation Types
+
+The tool supports all explicit geometric elements safely mapped to the evaluation metric system:
+* **walls**: Polylines/line segments mapped directly to `geometry`.
+* **rooms**: Closed polygons generated via multiple clicks.
+* **doors**: Explicit 2-point rectangles mathematically expanded to 4-point closed polygons.
+* **windows**: Explicit 2-point rectangles mathematically expanded to 4-point closed polygons.
+* **dimensions**: Explicit form input enforcing visible, legible metrics (mm/cm/m), skipping arbitrary spatial estimation.
+
+## D. Coordinate Validation
+
+The workspace guarantees coordinate safety mathematically. If a human resizes their browser window or zooms, the displayed floorplan scales visually, which would normally distort clicked positions. 
+
+To prevent this, the workspace computes an inverse display scale matrix dynamically using the image's inherent `naturalWidth` vs its CSS `clientWidth`:
+```javascript
+const scaleX = img.naturalWidth / img.clientWidth;
+const scaleY = img.naturalHeight / img.clientHeight;
+
+const x = (evt.clientX - rect.left) * scaleX;
+const y = (evt.clientY - rect.top) * scaleY;
+```
+This guarantees that the point saved in the JSON is perfectly mapped back to the original `origin=top-left` image coordinate space, completely eliminating drift or scaling corruption.
+
+## E. Export Format
+
+When the human clicks "Export JSON", the browser downloads a raw text file matching the exact strictly-typed `GroundTruth` Pydantic structure required by the evaluator:
+
+```json
+{
+  "id": "real_001",
+  "walls": [
+    {
+      "id": "W1",
+      "geometry": [[10.0, 10.0], [100.0, 10.0]]
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R1",
+      "polygon": [[10.0, 10.0], [100.0, 10.0], [100.0, 100.0], [10.0, 100.0]]
+    }
+  ],
+  "doors": [
+    {
+      "id": "D1",
+      "polygon": [[40.0, 5.0], [60.0, 5.0], [60.0, 15.0], [40.0, 15.0]]
+    }
+  ],
+  "windows": [],
+  "dimensions": [
+    {
+      "id": "Dim1",
+      "value_mm": 2000.0
+    }
+  ],
+  "scale_mm_per_px": null
+}
+```
+
+## F. Validation
+
+Validation test results confirm:
+1. Coordinates are properly stored as floats mirroring the true resolution of the image.
+2. Output JSON structures identically match the evaluation schema.
+3. Supplying an exported sample to `validate_ground_truth.py` confirms that the polygons correctly close, areas are non-zero, and structures do not cause the evaluator to exception or halt.
+
+## G. Privacy / Git Status
+
+* **Annotation Tool**: The `index.html` tool itself is safe and trackable via Git.
+* **Floorplan Images**: `real_001.png` — `real_005.png` are classified as **Private / Local Data** and should NOT be tracked or pushed unless the research team has explicit copyright clearance to host them publicly.
+* **Ground Truth JSONs**: Correspondingly private until cleared.
+* **Rule**: Never use `git add .` to prevent accidental inclusion of the private real-world batch.
+
+## H. Human Action Required
+
+The human operator must now manually annotate:
+* `real_001`
+* `real_002`
+* `real_003`
+* `real_004`
+* `real_005`
+
+Do not claim the benchmark is annotated until this is accomplished. Once you have saved the downloaded JSON files into `evaluation/ground_truth/custom_real_v1/`, run the `validate_ground_truth.py` script. Only if they pass, manually change their status to `"annotated"` in `manifest.json`.
+
+## I. Research Status
+
+* **Real benchmark annotations**: 0/5
+* **Real benchmark metrics**: unavailable
+* **Comparative real-world claims**: not yet proven
+
+The local environment is entirely ready. Await human annotation for Phase 6.

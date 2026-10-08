@@ -39,6 +39,7 @@ def run_mgr_pipeline(
     doors: list[Opening] | None = None,
     windows: list[Opening] | None = None,
     dimensions: list[DimensionEvidence] | None = None,
+    scale_mm_per_px: float | None = None,
     # Phase 3 extraction parameters
     min_length_px: float = 3.0,
     min_pixels: int = 3,
@@ -62,6 +63,10 @@ def run_mgr_pipeline(
     # Phase 10 calibration parameters
     scale_min_confidence: float = 0.0,
     scale_relative_tolerance: float = 0.10,
+    # Ablation Flags
+    enable_geometric_reconciliation: bool = True,
+    enable_metric_calibration: bool = True,
+    enable_topology_validation: bool = True,
 ) -> MGRResult:
     """Execute the full Metric-Aware Geometric Reconciliation (MGR) pipeline.
 
@@ -78,6 +83,8 @@ def run_mgr_pipeline(
         Predicted window openings to reconcile against wall geometry.
     dimensions : list[DimensionEvidence] | None, optional
         OCR / annotation dimension measurements for physical metric scale calibration.
+    scale_mm_per_px : float | None, optional
+        Pre-computed scale factor in mm/px. If provided, overrides dimensions parsing.
     snap_angle_tolerance_deg : float, optional
         Maximum angular deviation to snap to Manhattan orientations (default: 10.0°).
     collinear_angle_tolerance_deg : float, optional
@@ -173,24 +180,27 @@ def run_mgr_pipeline(
     # -------------------------------------------------------------------------
     # 2. Geometric Wall Cleanup (Phases 5 -> 6 -> 7)
     # -------------------------------------------------------------------------
-    snapped_walls = snap_wall_segments(
-        initial_walls,
-        angle_tolerance_deg=snap_angle_tolerance_deg,
-    )
+    if enable_geometric_reconciliation:
+        snapped_walls = snap_wall_segments(
+            initial_walls,
+            angle_tolerance_deg=snap_angle_tolerance_deg,
+        )
 
-    merged_walls = merge_collinear_segments(
-        snapped_walls,
-        angle_tolerance_deg=collinear_angle_tolerance_deg,
-        distance_tolerance_px=collinear_distance_tolerance_px,
-        gap_tolerance_px=collinear_gap_tolerance_px,
-    )
+        merged_walls = merge_collinear_segments(
+            snapped_walls,
+            angle_tolerance_deg=collinear_angle_tolerance_deg,
+            distance_tolerance_px=collinear_distance_tolerance_px,
+            gap_tolerance_px=collinear_gap_tolerance_px,
+        )
 
-    cleaned_walls = split_wall_intersections(
-        merged_walls,
-        intersection_tolerance_px=intersection_tolerance_px,
-        endpoint_tolerance_px=endpoint_tolerance_px,
-        min_segment_length_px=min_segment_length_px,
-    )
+        cleaned_walls = split_wall_intersections(
+            merged_walls,
+            intersection_tolerance_px=intersection_tolerance_px,
+            endpoint_tolerance_px=endpoint_tolerance_px,
+            min_segment_length_px=min_segment_length_px,
+        )
+    else:
+        cleaned_walls = initial_walls
 
     # -------------------------------------------------------------------------
     # 3. Opening Reconciliation (Phase 8) in Pixel Space
@@ -198,19 +208,23 @@ def run_mgr_pipeline(
     raw_doors = doors if doors is not None else []
     raw_windows = windows if windows is not None else []
 
-    reconciled_doors = reconcile_openings(
-        raw_doors,
-        cleaned_walls,
-        wall_distance_tolerance_px=wall_distance_tolerance_px,
-        projection_tolerance_px=projection_tolerance_px,
-    )
+    if enable_geometric_reconciliation:
+        reconciled_doors = reconcile_openings(
+            raw_doors,
+            cleaned_walls,
+            wall_distance_tolerance_px=wall_distance_tolerance_px,
+            projection_tolerance_px=projection_tolerance_px,
+        )
 
-    reconciled_windows = reconcile_openings(
-        raw_windows,
-        cleaned_walls,
-        wall_distance_tolerance_px=wall_distance_tolerance_px,
-        projection_tolerance_px=projection_tolerance_px,
-    )
+        reconciled_windows = reconcile_openings(
+            raw_windows,
+            cleaned_walls,
+            wall_distance_tolerance_px=wall_distance_tolerance_px,
+            projection_tolerance_px=projection_tolerance_px,
+        )
+    else:
+        reconciled_doors = raw_doors
+        reconciled_windows = raw_windows
 
     # -------------------------------------------------------------------------
     # 4. Room Polygonization (Phase 9) in Pixel Space
@@ -224,13 +238,15 @@ def run_mgr_pipeline(
     # -------------------------------------------------------------------------
     # 5. Metric Calibration (Phase 10)
     # -------------------------------------------------------------------------
-    scale_mm_per_px: float | None = None
-    if dimensions:
-        scale_mm_per_px = estimate_scale_mm_per_px(
-            dimensions,
-            min_confidence=scale_min_confidence,
-            relative_tolerance=scale_relative_tolerance,
-        )
+    if enable_metric_calibration:
+        if scale_mm_per_px is None and dimensions:
+            scale_mm_per_px = estimate_scale_mm_per_px(
+                dimensions,
+                min_confidence=scale_min_confidence,
+                relative_tolerance=scale_relative_tolerance,
+            )
+    else:
+        scale_mm_per_px = None
 
     if scale_mm_per_px is not None:
         calibrated_walls = calibrate_wall_segments(cleaned_walls, scale_mm_per_px)
@@ -267,19 +283,26 @@ def run_mgr_pipeline(
     # -------------------------------------------------------------------------
     # 7. Topology Validation (Phase 11)
     # -------------------------------------------------------------------------
-    topology_report = validate_topology(
-        calibrated_walls,
-        final_rooms,
-        reconciled_doors,
-        reconciled_windows,
-        node_tolerance_px=node_tolerance_px,
-    )
+    if enable_topology_validation:
+        topology_report = validate_topology(
+            calibrated_walls,
+            final_rooms,
+            reconciled_doors,
+            reconciled_windows,
+            node_tolerance_px=node_tolerance_px,
+        )
 
-    for err in topology_report["errors"]:
-        assumptions.append(f"Topology Error: {err}")
+        for err in topology_report["errors"]:
+            assumptions.append(f"Topology Error: {err}")
 
-    for warn in topology_report["warnings"]:
-        assumptions.append(f"Topology Warning: {warn}")
+        for warn in topology_report["warnings"]:
+            assumptions.append(f"Topology Warning: {warn}")
+            
+        topology_valid = topology_report["valid"]
+        topology_stats = topology_report["stats"]
+    else:
+        topology_valid = None
+        topology_stats = {}
 
     # -------------------------------------------------------------------------
     # 8. Confidence & Provenance Calculation
@@ -303,13 +326,13 @@ def run_mgr_pipeline(
         "overall": overall_conf,
         "geometry": geom_conf,
         "scale": scale_conf,
-        "topology_valid": topology_report["valid"],
+        "topology_valid": topology_valid,
     }
 
     provenance: dict[str, Any] = {
         "source": "MGR",
         "method": "deterministic_geometric_reconciliation",
-        "topology_stats": topology_report["stats"],
+        "topology_stats": topology_stats,
     }
 
     # -------------------------------------------------------------------------

@@ -24,7 +24,12 @@ class EvaluationRunner:
             # This adapter step ensures different baselines output common format
             metadata = raw_res.get("metadata", {})
             pred = Prediction(
-                scale_mm_per_px=metadata.get("scale", {}).get("scale_mm_per_px"),
+                walls=raw_res.get("walls", []),
+                rooms=raw_res.get("rooms", []),
+                doors=raw_res.get("doors", []),
+                windows=raw_res.get("windows", []),
+                dimensions=raw_res.get("dimensions", []),
+                scale_mm_per_px=raw_res.get("scale_mm_per_px") or metadata.get("scale", {}).get("scale_mm_per_px"),
                 inference_time_sec=time.time() - start
             )
             sample.prediction = pred

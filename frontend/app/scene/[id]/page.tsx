@@ -174,7 +174,7 @@ export default function ScenePage() {
 
   // In production this comes from API; in mock mode use demo data
   const metadata: ReconstructionMetadata = MOCK_METADATA;
-  const modelUrl = USE_MOCK ? null : `/api/result/${sceneId}/model`;
+  const modelUrl = USE_MOCK ? null : `http://localhost:8000/api/result/${sceneId}/model`;
 
   const handleLayerToggle = useCallback((id: string) => {
     setLayers((prev) =>
