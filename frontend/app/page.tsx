@@ -21,7 +21,7 @@ export default function Home() {
   const handleUpload = async () => {
     if (!file) return;
     setStatus("uploading");
-    
+
     // In a real flow, you'd use FormData to send the file.
     // We'll simulate it for the mock.
     const formData = new FormData();
@@ -33,14 +33,14 @@ export default function Home() {
       const { job_id } = res.data;
       setJobId(job_id);
       setStatus("processing");
-      
+
       // Simulate polling
       setTimeout(async () => {
         const metadataRes = await axios.get(`http://localhost:8000/api/result/${job_id}/metadata`);
         setMetadata(metadataRes.data.metadata);
-        
+
         const modelRes = await axios.get(`http://localhost:8000/api/result/${job_id}/model`);
-        
+
         // For the mock, we can set the model URL to a simple sample or leave it null 
         // to show the placeholder in the viewer if the sample doesn't exist.
         // We will pass the mock url, but our viewer handles non-existent gracefully.
@@ -56,7 +56,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
-        
+
         <header className="border-b border-neutral-800 pb-4">
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             FLOORPLAN <span className="text-orange-500">→</span> 3D
@@ -65,10 +65,10 @@ export default function Home() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[80vh]">
-          
+
           {/* Left Column: Upload & Stats */}
           <div className="lg:col-span-1 space-y-6 flex flex-col">
-            
+
             {/* Upload Area */}
             <div className="border-2 border-dashed border-neutral-800 rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4 bg-neutral-900/50 flex-shrink-0 transition-colors hover:border-orange-500/50">
               <div className="p-4 bg-neutral-800 rounded-full text-orange-500">
@@ -78,13 +78,13 @@ export default function Home() {
                 <p className="font-medium">Upload Floor Plan</p>
                 <p className="text-sm text-neutral-500 mt-1">Drag & drop or browse</p>
               </div>
-              <input 
-                type="file" 
-                className="text-sm text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-black hover:file:bg-orange-400 cursor-pointer" 
+              <input
+                type="file"
+                className="text-sm text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-black hover:file:bg-orange-400 cursor-pointer"
                 accept="image/*"
                 onChange={handleFileChange}
               />
-              <button 
+              <button
                 onClick={handleUpload}
                 disabled={!file || status === "uploading" || status === "processing"}
                 className="w-full mt-4 bg-orange-500 text-black font-semibold py-2 rounded hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
